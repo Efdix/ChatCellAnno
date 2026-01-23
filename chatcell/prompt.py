@@ -41,22 +41,44 @@ def generate_annotation_prompt(
                        f"You MUST use standardized cell type names from the Cell Ontology (CL)."
 
     mode_instruction = ""
+    example_block = ""
+
     if mode == "concise":
-        mode_instruction = "Only provide the cell type name. Do not include any numbers or extra annotations before the name. " \
+        mode_instruction = "Only provide the cell type name. Do not include any numbers, bullets, or extra annotations before the name. " \
                            "Do not include any explanatory text, introductory phrases, or descriptions."
+        example_block = """Example Output:
+CD4+ T cell
+B cell
+CD14+ Monocyte"""
     elif mode == "evidence":
         mode_instruction = "For each row, provide the Cell Type followed by a pipe character '|' and then a list of the specific genes from my provided list that most strongly support this decision.\n" \
                            "Format: Cell Type Name | Supported by: gene1, gene2"
+        example_block = """Example Output:
+CD4+ T cell | Supported by: IL7R, MAL
+CD14+ Monocyte | Supported by: CD14, LYZ
+B cell | Supported by: MS4A1, CD79A"""
     elif mode == "recommendation":
         mode_instruction = "For each row, provide the Cell Type followed by a pipe character '|' and then recommend 2-3 canonical marker genes that are MISSING from my list but would confirm this cell type.\n" \
                            "Format: Cell Type Name | Recommended Markers: gene1, gene2"
+        example_block = """Example Output:
+CD4+ T Cell | Recommended Markers: CD3D, CD4
+NK Cell | Recommended Markers: NCAM1, KLRB1
+B Cell | Recommended Markers: CD19, MS4A1"""
     else:
         raise ValueError("Invalid mode. Choose from 'concise', 'evidence', 'recommendation'.")
 
     prompt = f"""{base_instruction}
-{mode_instruction}
-IMPORTANT: Return exactly {num_clusters} lines, one for each row. Do not use Markdown header or code blocks if not necessary, just plain text lines.
 
+{mode_instruction}
+
+IMPORTANT: Return exactly {num_clusters} lines, one for each row. 
+Do not use Markdown header or code blocks. Just plain text lines.
+Do not add "Here is the list" or "Sure".
+
+{example_block}
+
+---
+Task Data:
 {marker_block}
 """
 

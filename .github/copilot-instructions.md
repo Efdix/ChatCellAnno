@@ -1,57 +1,66 @@
-# GitCell AI Instructions
+# ChatCell AI Instructions
 
-GitCell is a privacy-first, "human-in-the-loop" Python library for single-cell annotation that uses the user's local GitHub Copilot Chat interface rather than external APIs.
+ChatCell is a privacy-first, "human-in-the-loop" Python library for single-cell annotation that uses the system clipboard to bridge Scanpy data with any LLM (Copilot, ChatGPT, etc.), adhering to a "Zero-API" design philosophy.
 
 ## 🏗 Project Architecture
 
 ### Core Logic
-- **Entry Point**: `gitcell.annotate_cell_types` in `gitcell/core.py`.
+- **Entry Point**: `chatcell.annotate_cell_types` in [chatcell/core.py](chatcell/core.py).
 - **Data Flow**:
-  1.  `extractor.py`: Extracts marker genes from `adata.uns['rank_genes_groups']`.
-  2.  `prompt.py`: Formats markers into a prompt and puts it on the system **Clipboard**.
-  3.  `parser.py`: Ingests Copilot's raw text response (pasted by user/script) and maps it to clusters.
+  1.  **Extract**: [chatcell/extractor.py](chatcell/extractor.py) pulls top marker genes from `adata.uns['rank_genes_groups']`.
+  2.  **Prompt**: [chatcell/prompt.py](chatcell/prompt.py) formats markers into a prompt string and pushes it to the **OS Clipboard**.
+  3.  **Parse**: [chatcell/parser.py](chatcell/parser.py) ingests the raw text response (pasted by user/script) and maps annotations back to clusters.
 
 ### Scanpy Integration
-- The library is designed to work *on top* of existing Scanpy objects (`anndata`).
-- **Prerequisite**: Users must run `sc.tl.rank_genes_groups` before calling GitCell.
-- **State Management**: Annotation metadata (like the grouping key) is retrieved from `adata.uns['rank_genes_groups']['params']['groupby']`.
-- **Output**: Writes result to `adata.obs['gitcell_annotation']`.
+- **Prerequisite**: Users MUST run `sc.tl.rank_genes_groups` before calling ChatCell.
+- **State Management**: The clustering key is strictly retrieved from `adata.uns['rank_genes_groups']['params']['groupby']`.
+- **Output**: Writes cell type annotations to `adata.obs['chatcell_annotation']` and optional metadata to `adata.obs['chatcell_extra_info']`.
 
 ## 💻 Developer Patterns & Workflows
 
 ### 1. Zero-API Design Pattern
-- **Do not** add OpenAI/Anthropic API calls. The core philosophy is "Bring Your Own Copilot" (via the IDE).
-- **Mechanism**: The "API" is the **OS Clipboard**.
-  - Output: `pyperclip.copy(prompt_string)`
-  - Input: User manual paste into `step='parse'` arguments.
+- **Constraint**: Do NOT add OpenAI, Anthropic, or other REST API calls. The library must remain agnostic and privacy-centric.
+- **Mechanism**: The "API" is the **OS Clipboard** (`pyperclip`).
+  - **Output (Generate)**: `pyperclip.copy(prompt_string)`.
+  - **Input (Parse)**: User manually passes text to `step='parse', response_text='...'`.
 
-### 2. Prompt Engineering Constraints
-- The `parser.py` logic is intentionally simple (newline splitting).
-- **Rule**: All prompts generated in `prompt.py` MUST instruct Copilot to:
-  - Return **strictly** one line per cluster.
-  - Exclude introductory text ("Here is the list...").
-  - Exclude Markdown formatting that isn't a simple code block.
-- **Handling Mismatches**: The parser warns if `len(response_lines) != len(clusters)`. When modifying prompts, always verify output format stability.
+### 2. Prompt Engineering Protocol
+All prompts in [chatcell/prompt.py](chatcell/prompt.py) must be deterministic to ensure parsing success:
+- **Structure**: Instruct models to return *exactly* one line per cluster.
+- **Modes**:
+  - `concise`: Returns "CellType" only.
+  - `evidence`: Returns "CellType | Supported by: gene1, gene2".
+  - `recommendation`: Returns "CellType | Recommended Markers: geneA, geneB".
+- **Forbidden**: Do not allow intro text ("Here are your annotations..."), markdown headers, or numbered lists unless stripping logic handles them.
 
-### 3. Error Handling
-- **Clipboard**: `pyperclip` can fail on headless systems. Always wrap copy operations in `try/except` and fall back to printing the prompt to stdout.
-- **Scanpy Data**: Always validate `adata.uns['rank_genes_groups']` exists before proceeding.
+### 3. Parser Resilience
+- The parser in [chatcell/parser.py](chatcell/parser.py) must handle "chatty" LLM outputs.
+- **Strategy**: Strip Markdown code blocks (` ``` `), ignore empty lines, and warn (don't crash) if `len(response_lines) != len(clusters)`.
+- **Fallback**: If array lengths mismatch, pad with "Unknown" or truncate to avoid alignment errors.
 
 ### 4. Testing & Verification
-- Since there is no automated test suite yet, create mock `anndata` objects for verification:
+- Since there is no full CI/CD suite, verify changes using **mock AnnData objects**.
+- **Mock Template**:
   ```python
   import anndata
   import pandas as pd
   import numpy as np
   
-  # Minimal mock
+  # 1. Mock Data & Obs
   obs = pd.DataFrame({'leiden': ['0', '1', '0', '1']}, index=['c1', 'c2', 'c3', 'c4'])
   adata = anndata.AnnData(np.random.rand(4, 10), obs=obs)
-  # Mock the rank_genes_groups structure in adata.uns manually if skipping sc.tl call
+  
+  # 2. Mock 'rank_genes_groups' Structure
+  adata.uns['rank_genes_groups'] = {
+      'names': pd.DataFrame([['CD3D', 'CD79A'], ['CD3E', 'CD19']], columns=['0', '1']),
+      'scores': np.zeros((2, 2)),
+      'pvals_adj': np.zeros((2, 2)),
+      'params': {'groupby': 'leiden'}
+  }
   ```
 
 ## 📂 File Structure Key
-- `gitcell/core.py`: Workflow orchestration.
-- `gitcell/prompt.py`: Prompt generation & Clipboard ops.
-- `gitcell/parser.py`: Text processing & Validation.
-- `gitcell/extractor.py`: Scanpy data extraction interface.
+- [chatcell/core.py](chatcell/core.py): Workflow orchestration (`annotate_cell_types`).
+- [chatcell/prompt.py](chatcell/prompt.py): Prompt generation text templates & clipboard operations.
+- [chatcell/parser.py](chatcell/parser.py): LLM response parsing, validation, and cleaning.
+- [chatcell/extractor.py](chatcell/extractor.py): Interface for reading Scanpy `uns` data structures.

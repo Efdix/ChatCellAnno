@@ -1,0 +1,12 @@
+README.md
+setup.py
+chatcell/__init__.py
+chatcell/core.py
+chatcell/extractor.py
+chatcell/parser.py
+chatcell/prompt.py
+chatcell.egg-info/PKG-INFO
+chatcell.egg-info/SOURCES.txt
+chatcell.egg-info/dependency_links.txt
+chatcell.egg-info/requires.txt
+chatcell.egg-info/top_level.txt

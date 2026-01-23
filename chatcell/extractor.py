@@ -28,22 +28,12 @@ def extract_markers_from_scanpy(adata: anndata.AnnData, top_n: int = 10, uns_key
         # Get group names from columns
         groups = names.columns.tolist()
         
-        scores = pd.DataFrame(results['scores']) # or logfoldchanges
-        pvals = pd.DataFrame(results['pvals_adj'])
-        
-        # Check if 'logfoldchanges' exists, prefer it over scores for formatting, though extraction logic is similar
-        if 'logfoldchanges' in results:
-            lfc = pd.DataFrame(results['logfoldchanges'])
-        else:
-            lfc = scores
+        # Note: We currently only use 'names' to get the gene list.
+        # Future versions might use 'scores' or 'pvals_adj' to filter, but for now we trust the ranking.
             
         for group in groups:
-            # Create a temporary DF for this group to sort/filter if needed
-            # Scanpy usually already sorts them, but we take top N just in case
+            # Take top N
             group_genes = names[group].values[:top_n]
-            
-            # Filter? Usually scanpy results are already ranked. 
-            # We assume the user has run rank_genes_groups with appropriate method (e.g. wilcoxon)
             
             # Convert to comma separated string
             marker_str = ", ".join([str(g) for g in group_genes])
@@ -53,3 +43,32 @@ def extract_markers_from_scanpy(adata: anndata.AnnData, top_n: int = 10, uns_key
         raise ValueError(f"Failed to parse rank_genes_groups structure: {str(e)}")
         
     return processed_markers
+
+def extract_markers_from_df(df: pd.DataFrame, top_n: int = 10):
+    """
+    Extracts markers from a pandas DataFrame where columns are groups and rows are genes.
+    """
+    processed_markers = {}
+    for col in df.columns:
+        # Take top n values, convert to string
+        genes = df[col].dropna().astype(str).tolist()
+        group_genes = genes[:top_n]
+        processed_markers[str(col)] = ", ".join(group_genes)
+    return processed_markers
+
+def extract_markers_from_file(file_path: str, top_n: int = 10, sep: str = None):
+    """
+    Extracts markers from a CSV or TSV file.
+    """
+    if sep is None:
+        if file_path.endswith('.csv'):
+            sep = ','
+        else:
+            sep = '\t'
+            
+    try:
+        df = pd.read_csv(file_path, sep=sep)
+        return extract_markers_from_df(df, top_n)
+    except Exception as e:
+        raise ValueError(f"Failed to read marker file: {e}")
+
