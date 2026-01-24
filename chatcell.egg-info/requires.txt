@@ -1,4 +1,0 @@
-pandas
-pyperclip
-anndata
-scanpy

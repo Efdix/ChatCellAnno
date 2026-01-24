@@ -9,8 +9,6 @@ setup(
     install_requires=[
         "pandas",
         "pyperclip",
-        "anndata",
-        "scanpy"
     ],
     python_requires=">=3.8",
 )

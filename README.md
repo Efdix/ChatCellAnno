@@ -1,155 +1,81 @@
-# 🧬 ChatCell: 您的通用 AI 单细胞注释助手
+# 🧬 ChatCellAnno: 您的通用 AI 单细胞注释助手 (GUI版)
 
-**ChatCell** 是一个轻量级的 Python 库，旨在成为连接您的 **Scanpy** 数据分析与**任意大语言模型 (LLM)** 之间的桥梁。
+**ChatCellAnno** 是一个轻量级、无需安装、开箱即用的 Windows 桌面程序，旨在成为连接您的 **单细胞分析数据 (Seurat/Scanpy)** 与**任意大语言模型 (LLM)** 之间的桥梁。
 
 无论您使用的是 **GitHub Copilot, DeepSeek, ChatGPT (OpenAI), Claude, 豆包, 元宝** 还是本地部署的模型，ChatCell 都能通过**剪贴板**作为通用接口，协助您根据 Marker 基因快速完成细胞类型注释。
 
 ## ✨ 核心特性
 
+*   **🖥️ 图形化界面 (GUI)**: 专为不熟悉代码的用户设计，拖拽文件即可生成 AI 提示词。
 *   **🌐 模型无关 (Model Agnostic)**: 不绑定任何特定的 AI 模型。只要它是能聊天的 AI，就能用 ChatCell。
-*   **🔒 隐私优先 / 无需 API**: 库本身不发起任何网络请求。您的数据完全掌握在您手中，通过复制粘贴进行交互，无需配置复杂的 API Key。
-*   **⚡ 双模式支持**: 
-    *   **Scanpy 原生**: 无缝对接 `anndata` 对象和 `rank_genes_groups` 结果。
-    *   **通用文件模式**: 支持直接读取 CSV/TSV 格式的 Marker 表进行分析。
-*   **📋 极简交互**: 生成优化过的 Prompt 自动复制及结果自动解析，让手动流程如自动化般顺滑。
+*   **🔒 隐私优先 / Zero-API**: 软件本身不发起任何网络请求。您的数据完全掌握在您手中，通过复制粘贴进行交互，无需配置复杂的 API Key。
+*   **⚡ 智能文件识别**: 支持直接读取 Seurat 或 Scanpy 导出的差异基因表格 (`.csv`, `.tsv`, `.txt`)。
+*   **📝 两种输出模式**:
+    *   **Concise (简洁模式)**: 仅输出细胞类型名称，方便快速浏览。
+    *   **Detailed (详细模式)**: 输出推荐 Marker、基因功能解析及原始 Rankings，提供完整的注释证据链。
 
-## 🛠️ 安装
+## 🚀 快速开始 (无需安装)
 
-pip 安装较慢时，推荐先用 conda/mamba 安装核心依赖：
+1.  **下载**: 直接下载 `ChatCellAnno.exe` (通常在 Release 页面或 dist 文件夹中)。
+2.  **运行**: 双击打开程序。
+3.  **使用步骤**:
+    *   **Step 1**: 将您的 Marker 基因表格文件 (CSV/TSV) 拖入窗口，或点击 Browse 选择。
+    *   **Step 2**: 设置物种 (如 Human/Mouse) 和组织来源 (如 PBMC, Liver)。选择输出模式 (Concise 或 Detailed)。
+    *   **Step 3**: 点击 **"Generate Prompt"** 按钮。
+    *   **Step 4**: 此时提示词已自动复制到剪贴板。前往您的 AI 聊天界面 (ChatGPT/Claude/DeepSeek)，按下 `Ctrl+V` 粘贴并发送。
+    *   **Step 5**: 阅读 AI 返回的专业的细胞类型注释结果。
 
-```bash
-# 1. 创建环境并安装依赖 (速度更快)
-conda create -n chatcell -c conda-forge python=3.9 scanpy pandas anndata pyperclip -y
-# 或者: mamba create -n chatcell -c conda-forge python=3.9 scanpy pandas anndata pyperclip -y
+## 📄 数据准备指南
 
-conda activate chatcell
+ChatCell 需要一份包含 Marker 基因的表格文件。无论您使用 Seurat 还是 Scanpy，只要导出包含 `gene` (基因名) 和 `cluster` (分组) 列的 CSV 文件即可。
 
-# 2. 安装 ChatCell
-git clone https://github.com/Efdix/ChatCell.git
-cd ChatCell
-pip install -e .
-```
-
-## 📖 使用教程
-
-ChatCell 提供两种使用方式：直接基于 Scanpy 对象 (`adata`) 或基于 Marker 基因表格文件。
-
-### 方式一：Scanpy 对象工作流 (`anndata`)
-
-**1. 准备数据**
-确保您已经运行了差异表达分析：
-```python
-import scanpy as sc
-import chatcell
-
-# ... 加载并处理您的 adata ...
-# 计算 Marker 基因 (关键步骤!)
-sc.tl.rank_genes_groups(adata, groupby='leiden', method='wilcoxon')
-```
-
-**2. 生成 Prompt (Step 1)**
-此命令提取 Marker 并将优化后的 Prompt 复制到剪贴板。
-```python
-chatcell.annotate_cell_types(
-    adata=adata,        # 传入 AnnData 对象
-    step="generate", 
-    species="Human", 
-    tissue="PBMC",
-    mode="concise"      # 模式: concise, evidence, recommendation
-)
-```
-*输出: `✅ Prompt has been COPIED to your clipboard!`*
-
-**3. 与 AI 对话**
-将 Prompt 粘贴给 AI（Copilot, DeepSeek, ChatGPT...）。AI 会回复细胞类型列表。
-
-**4. 应用注释 (Step 2)**
-复制 AI 的回复内容，传回 ChatCell 更新 `adata`。
-```python
-ai_response = """
-CD4+ Naive T
-CD14+ Monocyte
-...
-"""
-
-chatcell.annotate_cell_types(
-    adata=adata,
-    step="parse", 
-    response_text=ai_response
-)
-
-# 结果已自动写入: data.obs['chatcell_annotation']
-sc.pl.umap(adata, color='chatcell_annotation')
-```
-
----
-
-### 方式二：通用文件工作流 (CSV/TSV)
-
-如果您没有 `adata` 对象，只有一个包含 Marker 基因的表格（列名=簇名，列值=基因列表），也可以使用 ChatCell。
-
-**1. 准备文件 (markers.tsv)**
+**示例文件格式 (Tidy 格式):**
 ```csv
-Cluster0    Cluster1
-CD14        CD3D
-LYZ         CD3E
-...         ...
+gene,cluster,avg_log2FC,p_val_adj
+CD14,0,2.5,0.0
+LYZ,0,2.1,0.0
+CD3D,1,3.4,0.0
+CD3E,1,3.1,0.0
+...
 ```
 
-**2. 生成 Prompt (Step 1)**
-```python
-import chatcell
-
-chatcell.annotate_cell_types(
-    marker_file="markers.tsv",  # 传入文件路径
-    step="generate",
-    species="Mouse",
-    tissue="Brain"
-)
+**或者宽矩阵格式 (列名=Cluster名):**
+```csv
+Cluster0,Cluster1
+CD14,CD3D
+LYZ,CD3E
+...
 ```
 
-**3. 解析结果 (Step 2)**
-```python
-ai_response = "..." # 从 AI 处复制
+## 🛠️ 开发者指南 (源码运行/自行构建)
 
-annotations, extra_info = chatcell.annotate_cell_types(
-    marker_file="markers.tsv",
-    step="parse",
-    response_text=ai_response
-)
+如果您是开发者并希望修改源码：
 
-print(annotations)
-# Output: {'Cluster0': 'Microglia', 'Cluster1': 'T Cell'}
-```
+1.  **环境配置**:
+    ```bash
+    # 使用 Mamba/Conda 创建环境
+    mamba create -n chatcell python=3.9 -y
+    mamba activate chatcell
+    
+    # 安装依赖
+    mamba install pandas pyperclip windnd pyinstaller openpyxl -y
+    ```
 
-## 🧠 高级模式 (Prompt Engineering)
+2.  **运行 GUI**:
+    ```bash
+    python gui.py
+    ```
 
-通过 `mode` 参数，您可以获得更丰富的分析结果，Prompt 已经过针对性优化：
+3.  **构建 EXE**:
+    ```bash
+    ./build.ps1
+    # 或者
+    pyinstaller --noconfirm --onefile --windowed --name "ChatCellAnno" --hidden-import "pandas" --hidden-import "pyperclip" --hidden-import "windnd" "gui.py"
+    ```
 
-*   **`mode="concise"` (默认)**: 
-    *   仅获取标准细胞类型名称 (Cell Ontology)。
-    *   适合后续直接用于自动标注。
-*   **`mode="evidence"`**: 
-    *   让 AI 列出支持该判断的 Marker 基因证据。
-    *   格式: `Cell Type | Supported by: gene1, gene2`
-*   **`mode="recommendation"`**: 
-    *   让 AI 推荐列表中缺失但有助于确认身份的 Marker 基因。
-    *   格式: `Cell Type | Recommended Markers: geneA, geneB`
+## 📜 许可证
 
-## 📂 示例代码
-
-在 `examples/` 目录下有完整的运行示例。无需 `cd` 进入文件夹，直接在项目根目录运行即可：
-
-*   生成测试数据: `python examples/gen_data.py`
-*   Scanpy 流程: `python examples/run_with_adata.py`
-*   TSV 流程: `python examples/run_with_tsv.py`
-
-## 📦 依赖要求
-
-*   pandas
-*   pyperclip
-*   anndata
-*   scanpy (可选，仅用于方式一)
+MIT License
 
 
 

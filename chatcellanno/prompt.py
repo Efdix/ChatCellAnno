@@ -26,7 +26,7 @@ def generate_annotation_prompt(
         markers: Dictionary of cluster -> markers
         species: Species name
         tissue: Tissue name
-        mode: Output mode. Options: 'concise' (default), 'evidence', 'recommendation'
+        mode: Output mode. Options: 'concise' (default), 'detailed'
         auto_copy: Whether to copy to clipboard automatically
     """
     
@@ -44,28 +44,18 @@ def generate_annotation_prompt(
     example_block = ""
 
     if mode == "concise":
-        mode_instruction = "Only provide the cell type name. Do not include any numbers, bullets, or extra annotations before the name. " \
-                           "Do not include any explanatory text, introductory phrases, or descriptions."
+        mode_instruction = "Provide the cell type name for each cluster. Format: ClusterX: Cell Type."
         example_block = """Example Output:
-CD4+ T cell
-B cell
-CD14+ Monocyte"""
-    elif mode == "evidence":
-        mode_instruction = "For each row, provide the Cell Type followed by a pipe character '|' and then a list of the specific genes from my provided list that most strongly support this decision.\n" \
-                           "Format: Cell Type Name | Supported by: gene1, gene2"
+Cluster0: CD4+ T cell
+Cluster1: B cell
+Cluster2: CD14+ Monocyte"""
+    elif mode == "detailed":
+        mode_instruction = "For each cluster, provide the Cell Type followed by a detailed explanation. Include recommended markers, their functions, and their ranks in the original list."
         example_block = """Example Output:
-CD4+ T cell | Supported by: IL7R, MAL
-CD14+ Monocyte | Supported by: CD14, LYZ
-B cell | Supported by: MS4A1, CD79A"""
-    elif mode == "recommendation":
-        mode_instruction = "For each row, provide the Cell Type followed by a pipe character '|' and then recommend 2-3 canonical marker genes that are MISSING from my list but would confirm this cell type.\n" \
-                           "Format: Cell Type Name | Recommended Markers: gene1, gene2"
-        example_block = """Example Output:
-CD4+ T Cell | Recommended Markers: CD3D, CD4
-NK Cell | Recommended Markers: NCAM1, KLRB1
-B Cell | Recommended Markers: CD19, MS4A1"""
+Cluster0: CD4+ T Cell | Recommended Markers: CD3D, CD4 | Marker Functions: CD3D (T-cell receptor complex), CD4 (Helper T-cell marker) | Ranks: CD3D (Rank 1), CD4 (Rank 2)
+Cluster1: B Cell | Recommended Markers: CD19, MS4A1 | Marker Functions: CD19 (B-cell activation), MS4A1 (B-cell receptor signaling) | Ranks: CD19 (Rank 3), MS4A1 (Rank 5)"""
     else:
-        raise ValueError("Invalid mode. Choose from 'concise', 'evidence', 'recommendation'.")
+        raise ValueError("Invalid mode. Choose from 'concise', 'detailed'.")
 
     prompt = f"""{base_instruction}
 
