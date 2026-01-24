@@ -1,4 +1,4 @@
-# 🧬 ChatCellAnno: 您的通用 AI 单细胞注释助手 (GUI版)
+# 🧬 ChatCellAnno: 通用 AI 单细胞注释助手 (GUI版)
 
 **ChatCellAnno** 是一个轻量级、无需安装、开箱即用的 Windows 桌面程序，旨在成为连接您的 **单细胞分析数据 (Seurat/Scanpy)** 与**任意大语言模型 (LLM)** 之间的桥梁。
 
@@ -7,7 +7,7 @@
 ## ✨ 核心特性
 
 *   **🖥️ 图形化界面 (GUI)**: 专为不熟悉代码的用户设计，拖拽文件即可生成 AI 提示词。
-*   **🌐 模型无关 (Model Agnostic)**: 不绑定任何特定的 AI 模型。只要它是能聊天的 AI，就能用 ChatCell。
+*   **🌐 模型无关 (Model Agnostic)**: 不绑定任何特定的 AI 模型。只要它是能聊天的 AI，就能用 ChatCellAnno。
 *   **🔒 隐私优先 / Zero-API**: 软件本身不发起任何网络请求。您的数据完全掌握在您手中，通过复制粘贴进行交互，无需配置复杂的 API Key。
 *   **⚡ 智能文件识别**: 支持直接读取 Seurat 或 Scanpy 导出的差异基因表格 (`.csv`, `.tsv`, `.txt`)。
 *   **📝 两种输出模式**:
