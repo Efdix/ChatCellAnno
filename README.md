@@ -16,6 +16,18 @@
     *   **生成 Prompt**: 一键生成高质量的细胞注释提示词。
     *   **生成代码**: 将 AI 的回答复制回软件，自动生成可执行的 Python (Scanpy) 或 R (Seurat) 代码，直接用于重命名聚类。
 
+## 🏗️ 架构理念 (Architecture)
+
+ChatCellAnno 遵循 **Zero-API** 和 **Human-in-the-loop** 的设计哲学。
+数据流向设计为闭环：`本地程序 -> 剪贴板 -> 用户粘贴给 AI -> AI 回复 -> 用户复制 -> 剪贴板 -> 本地程序`。
+
+### 模块结构
+*   `chatcellanno/core.py`: **总控制器**。协调提取、提示词生成和解析步骤。
+*   `chatcellanno/extractor.py`: **数据适配器**。严格区分 Scanpy 和 Seurat 的列名标准。
+*   `chatcellanno/prompt.py`: **提示词工程**。构建 Deterministic (确定性) 的 Prompt，要求 AI 返回严格格式。
+*   `chatcellanno/parser.py`: **解析器**。处理 Markdown 噪音，将 AI 的自然语言回复映射回代码逻辑。
+*   `gui.py`: **用户界面**。Tkinter 实现的前端，处理拖拽和系统剪贴板交互。
+
 ## 🚀 快速开始 (无需安装)
 
 1.  **下载**: 直接下载 `ChatCellAnno.exe` (在 Release 页面或 dist 文件夹中)。
@@ -61,19 +73,14 @@ ChatCellAnno 严格遵循 Scanpy 和 Seurat 的标准输出格式。
 
 2.  **运行 GUI**:
     ```bash
+    # 直接运行源码，无需安装包
     python gui.py
     ```
 
 3.  **构建 EXE**:
-    ```bash
+    ```powershell
+    # Windows 下使用 PowerShell 脚本一键构建
     ./build.ps1
-    # 或者
-    pyinstaller --noconfirm --onefile --windowed --name "ChatCellAnno" --hidden-import "pandas" --hidden-import "pyperclip" --hidden-import "windnd" "gui.py"
     ```
-
-## 📜 许可证
-
-MIT License
-
-
-
+    或者手动运行 PyInstaller:
+    ```bash

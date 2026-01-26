@@ -34,12 +34,17 @@ except ImportError:
     DND_SUPPORT = False
 
 class ChatCellApp:
+    """
+    主应用程序类，封装了所有 GUI 逻辑和交互事件。
+    使用 Tkinter 的 Grid/Pack 混合布局。
+    """
     def __init__(self, root):
         self.root = root
         self.root.title("ChatCell AI - Single Cell Annotation (Zero-API)")
         self.root.geometry("800x950") # 增加高度以容纳新功能
         
         # 定义 UI 绑定的变量 (UI Variables)
+        # Tkinter 的 StringVar/IntVar 允许 UI 组件与 Python 变量双向绑定
         self.file_path = tk.StringVar()
         self.species = tk.StringVar(value="Human")
         self.tissue = tk.StringVar(value="PBMC")
@@ -50,7 +55,8 @@ class ChatCellApp:
         # 初始化界面布局
         self.setup_ui()
         
-        # 注册拖拽事件
+        # 注册拖拽事件 (Windows Only)
+        # 使用 windnd 库钩住窗口句柄，当文件拖入时回调 on_drop 函数
         if DND_SUPPORT:
             windnd.hook_dropfiles(self.root, func=self.on_drop)
             

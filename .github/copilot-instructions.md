@@ -1,61 +1,59 @@
-# ChatCell AI Instructions
+# ChatCell AI - Copilot Instructions
 
-ChatCell is a privacy-first, "human-in-the-loop" Python library for single-cell annotation that uses the system clipboard to bridge Scanpy data with any LLM (Copilot, ChatGPT, etc.), adhering to a "Zero-API" design philosophy.
+ChatCellAnno is a privacy-first, "human-in-the-loop" Python library and desktop application for single-cell annotation. It bridges Scanpy/Seurat data with any LLM (Copilot, ChatGPT, DeepSeek) using the **System Clipboard** as the API, strictly adhering to a "Zero-API" design philosophy.
 
 ## 🏗 Project Architecture
 
-### Core Logic
-- **Entry Point**: `annotate_cell_types` in [chatcellanno/core.py](chatcellanno/core.py).
-- **Data Flow**:
-  1.  **Extract**: [chatcellanno/extractor.py](chatcellanno/extractor.py) pulls top marker genes from `adata.uns['rank_genes_groups']` or CSV/TSV.
-  2.  **Prompt**: [chatcellanno/prompt.py](chatcellanno/prompt.py) formats markers into a prompt string and pushes it to the **OS Clipboard** (`pyperclip`).
-  3.  **Parse**: [chatcellanno/parser.py](chatcellanno/parser.py) ingests raw text response and maps annotations back to clusters.
+### Core Logic (`chatcellanno/`)
+*   **Entry Point**: `annotate_cell_types` in [chatcellanno/core.py](chatcellanno/core.py) orchestrates the "Generate" and "Parse" phases.
+*   **Data Extraction**: [chatcellanno/extractor.py](chatcellanno/extractor.py) extracts markers from CSV/TSV.
+    *   **Scanpy Mode**: Looks for columns `names`/`gene`/`symbol` (gene) and `group`/`cluster` (cluster).
+    *   **Seurat Mode**: Looks for `gene`/`feature` and `cluster`.
+*   **Prompt Engineering**: [chatcellanno/prompt.py](chatcellanno/prompt.py) formats markers into deterministic text templates and pushes to clipboard.
+*   **Response Parsing**: [chatcellanno/parser.py](chatcellanno/parser.py) maps raw text response lines back to clusters.
 
 ### GUI & Distribution
-- **GUI**: [gui.py](gui.py) provides a Tkinter-based interface for non-programmers.
-- **Build System**: [build.ps1](build.ps1) uses PyInstaller to bundle the application.
-- **Distribution**: No user installation required; users run the standalone EXE.
+*   **Entry Point**: [gui.py](gui.py) is the Tkinter interface.
+    *   *Note*: Handles `sys.path` injection to allow running as a script (dev) vs frozen exe (prod).
+*   **Clipboard**: Central data bus. No network requests are made by the app.
+*   **Drag & Drop**: Uses `windnd` (Windows only) for better UX, wrapped in try-except for portability.
 
-### Data Integration
-- **Input**: CSV/TSV files containing marker genes.
-- **Support**: Tidy format (Sequence/Scanpy output) and Wide format (Matrix).
+## 🚀 Critical Developer Workflows
 
-## 💻 Developer Protocols
+### 1. Build Process
+Use the PowerShell script to generate the standalone executable.
+```powershell
+./build.ps1
+```
+*   **Tool**: PyInstaller
+*   **Configuration**: `--onefile --windowed --hidden-import pandas ...`
+*   **Output**: `dist/ChatCellAnno.exe`
+
+### 2. Testing & Verification
+Since there is no external API to mock, testing focuses on **Parser Resilience**.
+*   **Parser Logic**: verify `parser.py` handles markdown bloat (```json ... ```) and empty lines correctly.
+*   **Mocking**: Use synthetic DataFrames similar to manual construction (e.g. `pd.DataFrame({'cluster': ...})`).
+
+## 💻 Codebase Conventions
 
 ### 1. Zero-API Design Pattern
-- **Constraint**: Do NOT add direct API calls (e.g., OpenAI SDK). The library must remain agnostic.
-- **Mechanism**: Use the clipboard for data transfer. 
-  - **Output**: `pyperclip.copy(prompt_string)`.
+*   **Constraint**: NEVER implement direct calls to OpenAI/Anthropic/Google APIs.
+*   **Mechanism**: All data transfer must happen via `pyperclip.copy()` and user pasting.
+*   **Reasoning**: Privacy, model-agnosticism, and "serverless" operation.
 
 ### 2. Prompt Engineering Protocol
-Templates in [chatcellanno/prompt.py](chatcellanno/prompt.py) must be deterministic:
-- **Structure**: Instruct models to return *exactly* one line per cluster.
-- **Modes**:
-  - `concise`: Returns "ClusterX: CellType" only.
-  - `detailed`: Returns "ClusterX: CellType | Recommended Markers | Functions | Ranks".
-- **Forbidden**: No intro/outro text; No Markdown headers.
+Templates in [chatcellanno/prompt.py](chatcellanno/prompt.py) must be **Deterministic**.
+*   **Constraint**: The LLM must be instructed to return *exactly one line per cluster*.
+*   **Warning**: If the Prompt allows multi-line descriptions per cluster, the `parser.py` logic (line-to-cluster mapping) will fail.
+*   **Format**: "Concise" (Type only) or "Detailed" (Type | Reasoning).
 
-### 3. Parser Resilience
-- **Strategy**: Strip Markdown blocks, ignore empty lines, and warn if `len(response_lines) != len(clusters)`.
-- **Fallback**: Pad with "Unknown" or truncate to maintain alignment.
+### 3. Dependency Management
+*   **GUI Imports**: `gui.py` must remain runnable as a standalone script `python gui.py` without installing the package. Do not remove the `sys.path.append` block.
+*   **Platform Specifics**: `windnd` is Windows-specific. Always guard it with `try-except ImportError`.
 
-### 4. Testing & Verification
-Verify changes using mock objects in [examples/gen_data.py](examples/gen_data.py) or custom snippets:
-```python
-import anndata
-import pandas as pd
-import numpy as np
-obs = pd.DataFrame({'leiden': ['0', '1', '0', '1']}, index=['c1', 'c2', 'c3', 'c4'])
-adata = anndata.AnnData(np.random.rand(4, 10), obs=obs)
-adata.uns['rank_genes_groups'] = {
-    'names': pd.DataFrame([['CD3D', 'CD79A'], ['CD3E', 'CD19']], columns=['0', '1']),
-    'params': {'groupby': 'leiden'}
-}
-```
-
-## 📂 File Structure Key
-- [chatcellanno/core.py](chatcellanno/core.py): Workflow orchestration.
-- [chatcellanno/prompt.py](chatcellanno/prompt.py): Templates and clipboard I/O.
-- [chatcellanno/parser.py](chatcellanno/parser.py): Response cleaning and mapping.
-- [chatcellanno/extractor.py](chatcellanno/extractor.py): Scanpy/TSV data extraction.
+## 📂 Key File Map
+*   [chatcellanno/core.py](chatcellanno/core.py): Workflow controller.
+*   [chatcellanno/extractor.py](chatcellanno/extractor.py): Pandas logic for Scanpy/Seurat formats.
+*   [gui.py](gui.py): Tkinter frontend (Main Thread).
+*   [build.ps1](build.ps1): Release build script.
 

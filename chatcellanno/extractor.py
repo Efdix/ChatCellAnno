@@ -29,8 +29,12 @@ def extract_markers_from_df(df: pd.DataFrame, source: str = 'scanpy', top_n: int
     gene_col = None
 
     # 1. Scanpy Logic
-    # 对应 sc.get.rank_genes_groups_df 输出
-    # 通常期望列: 'names' (基因), 'group' (聚类)
+    # 对应 sc.get.rank_genes_groups_df(adata, None) 输出的 CSV 格式
+    # 该函数默认生成 'names' 列存储基因名，'group' 列存储 Cluster 标签
+    # 示例:
+    # names,       scores,    logfoldchanges,  pvals,    pvals_adj,  group
+    # CD3D,        25.3,      3.5,            1e-50,    1e-45,      0
+    # ...
     if source == 'scanpy':
         possible_gene_cols = ['names', 'gene', 'symbol']
         possible_cluster_cols = ['group', 'cluster', 'leiden', 'louvain']
@@ -42,8 +46,11 @@ def extract_markers_from_df(df: pd.DataFrame, source: str = 'scanpy', top_n: int
             raise ValueError(f"Scanpy data requires columns for genes ({possible_gene_cols}) and clusters ({possible_cluster_cols}). Found: {list(df.columns)}")
 
     # 2. Seurat Logic
-    # 对应 FindAllMarkers 输出
-    # 通常期望列: 'gene', 'cluster'
+    # 对应 FindAllMarkers(seurat_obj) 输出的 CSV 格式
+    # R 语言中的 Seurat 包标准输出通常包含 'gene' 和 'cluster' 列
+    # 示例:
+    # p_val,  avg_log2FC,  pct.1,  pct.2,  p_val_adj,  cluster,  gene
+    # 0,      1.2,        0.9,    0.1,    0,          0,        CD3D
     elif source == 'seurat':
         possible_gene_cols = ['gene', 'feature']
         possible_cluster_cols = ['cluster']
