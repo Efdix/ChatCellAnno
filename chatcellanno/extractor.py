@@ -1,49 +1,83 @@
+"""
+数据提取模块 (Data Extraction Module)
+
+负责从 CSV/TSV 文件或 Pandas DataFrame 中提取标记基因 (Marker Genes)。
+支持两种主要的数据格式：
+1. Tidy/Long Format (长宽表): 常见的分析软件输出格式 (如 Scanpy, Seurat)，包含 'cluster' 和 'gene' 列。
+2. Wide/Matrix Format (宽表): 每一列代表一个 Cluster，列中的值为 Gene Names。
+"""
+
 import pandas as pd
 import os
 
-def extract_markers_from_df(df: pd.DataFrame, top_n: int = 10):
+def extract_markers_from_df(df: pd.DataFrame, source: str = 'scanpy', top_n: int = 10):
     """
-    Extracts markers from a pandas DataFrame.
-    Supports two formats:
-    1. Tidy/Long format: Columns like 'gene', 'cluster', 'avg_log2FC' (standard Seurat/Scanpy output table).
-    2. Wide/Matrix format: Columns are cluster names, values are genes.
+    从 Pandas DataFrame 中提取标记基因。
+    
+    参数:
+        df: 输入的 DataFrame 数据。
+        source: 数据来源 ('scanpy' 或 'seurat')。
+        top_n: 每个 Cluster 提取前 N 个基因。
+        
+    返回:
+        dict: {cluster_name: "gene1, gene2, ..."}
     """
     processed_markers = {}
+    source = source.lower()
     
-    # Check for Tidy/Long format
-    # Common column names for clustering results
-    cols = [c.lower() for c in df.columns]
-    
-    # Identify key columns
-    cluster_col = next((c for c in df.columns if c.lower() in ['cluster', 'group', 'leiden', 'louvain']), None)
-    gene_col = next((c for c in df.columns if c.lower() in ['gene', 'names', 'symbol', 'feature']), None)
-    
-    # If we found both 'cluster' and 'gene' columns, treat as Long format
-    if cluster_col and gene_col:
-        # Standardize sorting if possible (optional: relies on input being pre-sorted or having a stats column)
-        # We assume the input file is already sorted by significance/fold-change, respecting input order.
+    cluster_col = None
+    gene_col = None
+
+    # 1. Scanpy Logic
+    # 对应 sc.get.rank_genes_groups_df 输出
+    # 通常期望列: 'names' (基因), 'group' (聚类)
+    if source == 'scanpy':
+        possible_gene_cols = ['names', 'gene', 'symbol']
+        possible_cluster_cols = ['group', 'cluster', 'leiden', 'louvain']
         
-        # Group by cluster and extract top N genes
-        grouped = df.groupby(cluster_col)
-        for name, group in grouped:
-            # Get top N genes from this group
-            # Assuming the file is already sorted, we just take the first N
-            genes = group[gene_col].astype(str).values[:top_n]
-            processed_markers[str(name)] = ", ".join(genes)
+        gene_col = next((c for c in df.columns if c.lower() in possible_gene_cols), None)
+        cluster_col = next((c for c in df.columns if c.lower() in possible_cluster_cols), None)
+        
+        if not gene_col or not cluster_col:
+            raise ValueError(f"Scanpy data requires columns for genes ({possible_gene_cols}) and clusters ({possible_cluster_cols}). Found: {list(df.columns)}")
+
+    # 2. Seurat Logic
+    # 对应 FindAllMarkers 输出
+    # 通常期望列: 'gene', 'cluster'
+    elif source == 'seurat':
+        possible_gene_cols = ['gene', 'feature']
+        possible_cluster_cols = ['cluster']
+        
+        gene_col = next((c for c in df.columns if c.lower() in possible_gene_cols), None)
+        cluster_col = next((c for c in df.columns if c.lower() in possible_cluster_cols), None)
+        
+        if not gene_col or not cluster_col:
+            raise ValueError(f"Seurat data requires columns for genes ({possible_gene_cols}) and clusters ({possible_cluster_cols}). Found: {list(df.columns)}")
             
     else:
-        # Fallback to Wide/Matrix format (Columns = Clusters)
-        for col in df.columns:
-            # Take top n values, convert to string
-            genes = df[col].dropna().astype(str).tolist()
-            group_genes = genes[:top_n]
-            processed_markers[str(col)] = ", ".join(group_genes)
+        raise ValueError("Source must be 'scanpy' or 'seurat'.")
+
+    # 执行提取
+    # 按 Cluster 分组 (Group by cluster)
+    grouped = df.groupby(cluster_col)
+    for name, group in grouped:
+        # 获取该组的前 N 个基因
+        genes = group[gene_col].astype(str).values[:top_n]
+        # 将基因列表转换为逗号分隔的字符串
+        processed_markers[str(name)] = ", ".join(genes)
             
     return processed_markers
 
-def extract_markers_from_file(file_path: str, top_n: int = 10, sep: str = None):
+def extract_markers_from_file(file_path: str, source: str = 'scanpy', top_n: int = 10, sep: str = None):
     """
-    Extracts markers from a CSV or TSV file.
+    从 CSV 或 TSV 文件中提取标记基因。
+    作为 `extract_markers_from_df` 的文件输入包装器。
+    
+    参数:
+        file_path: 文件路径。
+        source: 数据来源 ('scanpy' 或 'seurat')。
+        top_n: 提取数量。
+        sep: 分隔符 (如果为 None 则自动根据文件扩展名推断)。
     """
     if sep is None:
         if file_path.endswith('.csv'):
@@ -51,13 +85,13 @@ def extract_markers_from_file(file_path: str, top_n: int = 10, sep: str = None):
         elif file_path.endswith('.tsv') or file_path.endswith('.txt'):
             sep = '\t'
         else:
-            sep = ',' # Default fallback
+            sep = ',' # 默认回退值
             
     try:
-        # Read the file
+        # 读取文件到 Pandas DataFrame
         df = pd.read_csv(file_path, sep=sep)
-        return extract_markers_from_df(df, top_n)
+        return extract_markers_from_df(df, source=source, top_n=top_n)
     except Exception as e:
-        raise ValueError(f"Failed to read marker file: {e}")
+        raise ValueError(f"Failed to read marker file (读取文件失败): {e}")
 
 

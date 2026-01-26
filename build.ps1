@@ -1,8 +1,7 @@
 # ChatCell EXE Build Script
 Write-Host "Checking dependencies..." -ForegroundColor Cyan
 
-# Install requirements if missing
-pip install pyinstaller windnd pyperclip pandas
+# Note: Ensure you are in the correct Conda environment (e.g., conda activate chatcellanno)
 
 Write-Host "Building ChatCell GUI Executable..." -ForegroundColor Green
 
@@ -10,8 +9,7 @@ Write-Host "Building ChatCell GUI Executable..." -ForegroundColor Green
 # --onefile: Bundle into a single EXE
 # --windowed: No console window when running
 # --name: Name of the output file
-# --hidden-import: Ensure some data libraries are hooked correctly (scanpy dependencies)
-# --collect-all: Scanpy/Anndata sometimes need all their metadata
+# --hidden-import: Ensure dynamic imports are found
 
 pyinstaller --noconfirm --onefile --windowed `
     --name "ChatCellAnno" `
@@ -20,4 +18,5 @@ pyinstaller --noconfirm --onefile --windowed `
     --hidden-import "windnd" `
     "gui.py"
 
-Write-Host "Build complete! Check the 'dist' folder for ChatCellAnno.exe." -ForegroundColor Yellow
+Write-Host "Build Complete! Check the 'dist' folder." -ForegroundColor Green
+
