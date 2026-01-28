@@ -84,3 +84,5 @@ ChatCellAnno 严格遵循 Scanpy 和 Seurat 的标准输出格式。
     ```
     或者手动运行 PyInstaller:
     ```bash
+    pyinstaller --noconfirm --onefile --windowed --name "ChatCellAnno" --hidden-import "pandas" --hidden-import "pyperclip" --hidden-import "windnd" "gui.py"
+    ```
