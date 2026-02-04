@@ -25,6 +25,7 @@ def generate_annotation_prompt(
     species: str = "Human",
     tissue: str = "PBMC",
     mode: str = "concise",
+    exclude_types: str = "",
     auto_copy: bool = True
 ) -> str:
     """
@@ -37,6 +38,7 @@ def generate_annotation_prompt(
         mode: 输出模式
              - 'concise': 简洁模式，只输出细胞类型名称。
              - 'detailed': 详细模式，包含推荐 Marker 和功能解释。
+        exclude_types: 需要排除的细胞类型（逗号分隔字符串）。
         auto_copy: 是否自动复制到剪贴板。
     """
     
@@ -52,28 +54,39 @@ def generate_annotation_prompt(
     base_instruction = f"Identify cell types of {species} {tissue} cells using the following markers separately for each row.\n" \
                        f"You MUST use standardized cell type names from the Cell Ontology (CL)."
 
+    # 排除项指令 (Exclude Instruction)
+    exclude_instruction = ""
+    if exclude_types and exclude_types.strip():
+        exclude_instruction = f"IMPORTANT: The following cell types are known NOT to be present in this sample. Do NOT identify any cluster as: {exclude_types}."
+
     mode_instruction = ""
     example_block = ""
 
     # 根据模式设置具体的格式指令
     if mode == "concise":
-        mode_instruction = "Provide the cell type name for each cluster. Format: ClusterX: Cell Type."
+        mode_instruction = "For each cluster, provide the result in a Markdown Table format. The table must have columns: 'Cluster' and 'Cell Type'."
         example_block = """Example Output:
-Cluster0: CD4+ T cell
-Cluster1: B cell
-Cluster2: CD14+ Monocyte"""
+| Cluster | Cell Type |
+| :--- | :--- |
+| Cluster0 | CD4+ T Cell |
+| Cluster1 | B Cell |
+| Cluster2 | CD14+ Monocyte |"""
     elif mode == "detailed":
-        mode_instruction = "For each cluster, provide the Cell Type followed by a detailed explanation. Include recommended markers, their functions, and their ranks in the original list."
-        # 使用对应的 Example，确保 AI 理解 '|' 分隔符
+        mode_instruction = "For each cluster, provide the result in a Markdown Table format. The table must have columns: 'Cluster', 'Cell Type', 'Recommended Markers', and 'Reasoning/Functions'."
+        # 使用对应的 Example，确保 AI 输出表格
         example_block = """Example Output:
-Cluster0: CD4+ T Cell | Recommended Markers: CD3D, CD4 | Marker Functions: CD3D (T-cell receptor complex), CD4 (Helper T-cell marker) | Ranks: CD3D (Rank 1), CD4 (Rank 2)
-Cluster1: B Cell | Recommended Markers: CD19, MS4A1 | Marker Functions: CD19 (B-cell activation), MS4A1 (B-cell receptor signaling) | Ranks: CD19 (Rank 3), MS4A1 (Rank 5)"""
+| Cluster | Cell Type | Recommended Markers | Reasoning/Functions |
+| :--- | :--- | :--- | :--- |
+| Cluster0 | CD4+ T Cell | CD3D, CD4 | CD3D is a T-cell receptor complex component... |
+| Cluster1 | B Cell | CD19, MS4A1 | CD19 is a classic B-cell marker... |"""
     else:
         raise ValueError("Invalid mode. Choose from 'concise', 'detailed'.")
 
     # 组装最终 Prompt
     # 强调返回行数必须与 Cluster 数量一致，这对于后续解析非常关键
     prompt = f"""{base_instruction}
+
+{exclude_instruction}
 
 {mode_instruction}
 
@@ -89,7 +102,7 @@ Task Data:
 """
 
     print("=" * 80)
-    print("🤖 ChatCell: AI Prompt Generated")
+    print("🤖 ChatCellAnno: AI Prompt Generated")
     print("=" * 80)
     
     if auto_copy:

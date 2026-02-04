@@ -6,7 +6,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['pandas', 'pyperclip', 'windnd'],
+    hiddenimports=['PySide6.QtWebEngineWidgets', 'pandas', 'pyperclip', 'windnd'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['D:\\System\\Documents\\GitHub\\ChatCellAnno\\app_icon.ico'],
 )

@@ -123,30 +123,28 @@ Cluster0: CD3D, ...
 
 ---
 
-## Phase 5: GUI 开发 (Tkinter)
+## Phase 5: GUI 开发 (PySide6)
 
-**目标**: 给 Python 脚本穿上一层"衣服"，让不懂代码的人也能点点点。
+**目标**: 将界面从 Tkinter 升级到专业的 PySide6 (Qt)，以支持更复杂的组件和内嵌浏览器。
 
-**核心文件**: `gui.py`
+**为什么选 PySide6?**
+- **现代感**: 支持高分屏缩放 (DPI scaling) 和更美观的控件。
+- **功能强**: 提供了 `QWebEngineView`，这是一个完整的 Chromium 浏览器内核。
 
-**为什么选 Tkinter?**
-- Python 内置，无需安装额外库 (PyQt 需要 pip install，打包体积大)。
-- 足够简单，适合这种工具类软件。
-
-**架构模式**:
-- **UI 线程**: 负责显示按钮、响应点击。
-- **Core 逻辑**: 按钮点击后调用 `annotate_cell_types`。
-
-**关键控件**:
-- `tk.Button`: 按钮。
-- `ttk.Entry` / `tk.StringVar`: 输入框和变量绑定。
-- `windnd` (第三方): 实现文件拖拽进窗口的功能 (Windows 特有黑科技)。
+**关键组件**:
+- `QSplitter`: 实现左侧控制区和右侧浏览器区的自由缩放。
+- `QTableWidget`: 提供原生的表格展示功能。
+- `QWebEngineView`: 核心组件，让用户在软件里直接登录 ChatGPT。
 
 ---
 
-## Phase 6: 打包发布 (PyInstaller)
+## Phase 6: 打包发布 (PyInstaller & PySide6)
 
-**目标**: 把 `.py` 文件变成 `.exe` 文件，这样别人的电脑上没有 Python 也能运行。
+**目标**: 把 `.py` 文件变成 `.exe` 文件。注意：由于引入了 WebEngine，打包体积会显著增加。
+
+**关键设置**:
+- 必须确保 `PySide6.QtWebEngineWidgets` 被正确引入。
+- 打包命令详见 `README.md`。
 
 **构建脚本**: `build.ps1`
 

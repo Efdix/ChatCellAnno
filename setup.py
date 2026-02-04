@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="chatcell",
+    name="chatcellanno",
     version="0.1.0",
-    description="ChatCell: LLM-assisted Single-cell Annotation Tool",
-    author="ChatCell Team",
+    description="ChatCellAnno: LLM-assisted Single-cell Annotation Tool",
+    author="ChatCellAnno Team",
     packages=find_packages(),
     install_requires=[
         "pandas",

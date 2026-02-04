@@ -1,4 +1,4 @@
-# ChatCell AI - Copilot Instructions
+# ChatCellAnno AI - Copilot Instructions
 
 ChatCellAnno is a privacy-first, "human-in-the-loop" Python library and desktop application for single-cell annotation. It bridges Scanpy/Seurat data with any LLM (Copilot, ChatGPT, DeepSeek) using the **System Clipboard** as the API, strictly adhering to a "Zero-API" design philosophy.
 

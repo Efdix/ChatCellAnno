@@ -1,88 +1,55 @@
-# 🧬 ChatCellAnno: 通用 AI 单细胞注释助手 (GUI版)
+# ChatCellAnno: AI-Powered Single-Cell Annotation Assistant
 
-**ChatCellAnno** 是一个轻量级、无需安装、开箱即用的 Windows 桌面程序，旨在成为连接您的 **单细胞分析数据 (Seurat/Scanpy)** 与**任意大语言模型 (LLM)** 之间的桥梁。
+ChatCellAnno is a privacy-first, desktop application designed to bridge the gap between single-cell analysis data (Scanpy/Seurat) and Large Language Models (LLMs). Utilizing a 'Human-in-the-loop' approach and a 'Zero-API' design philosophy, it ensures your data remains local and secure while leveraging the power of modern AI.
 
-无论您使用的是 **GitHub Copilot, DeepSeek, ChatGPT (OpenAI), Claude, 豆包, 元宝** 还是本地部署的模型，ChatCell 都能通过**剪贴板**作为通用接口，协助您根据 Marker 基因快速完成细胞类型注释。
+[中文文档 (Chinese Documentation)](README_zh.md)
 
-## ✨ 核心特性
+## Core Features
 
-*   **🖥️ 图形化界面 (GUI)**: 专为不熟悉代码的用户设计，拖拽文件即可生成 AI 提示词。
-*   **🌐 模型无关 (Model Agnostic)**: 不绑定任何特定的 AI 模型。只要它是能聊天的 AI，就能用 ChatCellAnno。
-*   **🔒 隐私优先 / Zero-API**: 软件本身不发起任何网络请求。您的数据完全掌握在您手中，通过复制粘贴进行交互，无需配置复杂的 API Key。
-*   **⚡ 智能文件识别**: 
-    *   **Scanpy (Python)**: 支持 `sc.get.rank_genes_groups_df` 导出的表格 (`names`, `group`)。
-    *   **Seurat (R)**: 支持 `FindAllMarkers` 导出的表格 (`gene`, `cluster`)。
-*   **📝 全流程支持**:
-    *   **生成 Prompt**: 一键生成高质量的细胞注释提示词。
-    *   **生成代码**: 将 AI 的回答复制回软件，自动生成可执行的 Python (Scanpy) 或 R (Seurat) 代码，直接用于重命名聚类。
+- **GUI Interface**: Modern, drag-and-drop interface powered by PySide6.
+- **Model Agnostic**: Compatible with any LLM (Copilot, DeepSeek, ChatGPT, Claude, etc.) via clipboard interaction.
+- **Privacy First**: No API keys required. No network requests are made by the application core.
+- **Intelligent Parsing**: Automatically detects Scanpy (`names`, `group`) and Seurat (`gene`, `cluster`) marker file formats.
+- **Automated Code Generation**: Parses AI responses to generate executable Python (Scanpy) or R (Seurat) code for cell type annotation.
 
-## 🏗️ 架构理念 (Architecture)
+## Architecture
 
-ChatCellAnno 遵循 **Zero-API** 和 **Human-in-the-loop** 的设计哲学。
-数据流向设计为闭环：`本地程序 -> 剪贴板 -> 用户粘贴给 AI -> AI 回复 -> 用户复制 -> 剪贴板 -> 本地程序`。
+- **Core Logic**: The \chatcellanno/\ package handles data extraction, prompt engineering, and response parsing.
+- **GUI**: \gui.py\ provides the user interface with an integrated QtWebEngine browser.
+- **Zero-API**: All data transfer between the app and the LLM is handled exclusively via the system clipboard.
 
-### 模块结构
-*   `chatcellanno/core.py`: **总控制器**。协调提取、提示词生成和解析步骤。
-*   `chatcellanno/extractor.py`: **数据适配器**。严格区分 Scanpy 和 Seurat 的列名标准。
-*   `chatcellanno/prompt.py`: **提示词工程**。构建 Deterministic (确定性) 的 Prompt，要求 AI 返回严格格式。
-*   `chatcellanno/parser.py`: **解析器**。处理 Markdown 噪音，将 AI 的自然语言回复映射回代码逻辑。
-*   `gui.py`: **用户界面**。Tkinter 实现的前端，处理拖拽和系统剪贴板交互。
+## Installation & Run
 
-## 🚀 快速开始 (无需安装)
+### Prerequisites
+- Python 3.10+
+- Dependencies: Pandas, PySide6, PySide6-WebEngine, Pyperclip
 
-1.  **下载**: 直接下载 `ChatCellAnno.exe` (在 Release 页面或 dist 文件夹中)。
-2.  **运行**: 双击打开程序。
-3.  **使用步骤**:
-    *   **Step 1**: 将您的 Marker 表格文件拖入。选择您的数据来源 (**Scanpy** 或 **Seurat**)。
-    *   **Step 2**: 设置物种 (如 Human) 和组织 (如 PBMC)。
-    *   **Step 3**: 选择输出模式 (Concise 或 Detailed)。
-    *   **Step 4**: 点击 **"Generate Prompt"**。提示词已自动复制。
-    *   **Step 5**: 前往 AI 聊天界面 (ChatGPT/Claude 等)，粘贴并发送。
-    *   **Step 6**: **复制 AI 的回答**，粘贴回软件的 "Step 4: Parse AI Response" 区域。
-    *   **Step 7**: 点击 **"Process & Generate Code"**。软件会自动生成对应的 Python 或 R 代码，助您一键完成注释。
+### Quick Start
 
-## 📄 数据准备指南
+1. Create a virtual environment (recommended):
+   ```bash
+   conda create -n chatcellanno python=3.10
+   conda activate chatcellanno
+   ```
 
-ChatCellAnno 严格遵循 Scanpy 和 Seurat 的标准输出格式。
+2. Install dependencies:
+   ```bash
+   pip install pandas pyperclip PySide6 PySide6-WebEngine
+   ```
 
-**1. Scanpy 用户 (Python):**
-使用 `sc.get.rank_genes_groups_df(adata, None)` 导出的 CSV。
-必须包含列: `names` (基因名), `group` 或 `cluster` (聚类号)。
+3. Run the application:
+   ```bash
+   python gui.py
+   ```
+## Workflow
 
-**2. Seurat 用户 (R):**
-使用 `FindAllMarkers(seurat_obj)` 导出的 CSV。
-必须包含列: `gene` (基因名), `cluster` (聚类号)。
+1. **Load Data**: Drag and drop your marker gene file (.csv, .tsv) into the application.
+2. **Configure**: Enter species, tissue type, and other parameters to refine the context.
+3. **Generate Prompt**: Click 'Generate & Copy Prompt'.
+4. **Interact with AI**: Paste the prompt into the built-in browser (or any external LLM interface).
+5. **Process Response**: Copy the AI's full response and paste it back into ChatCellAnno.
+6. **Get Code**: Click 'Process AI Output' to generate the annotation code.
 
-*(注: 不再支持旧版的宽矩阵格式)*
+## License
 
-## 🛠️ 开发者指南 (源码运行/自行构建)
-
-如果您是开发者并希望修改源码：
-
-1.  **环境配置**:
-    ```bash
-    # 使用 Mamba/Conda 创建环境
-    mamba create -n chatcellanno python=3.9 -y
-    mamba activate chatcellanno
-    
-    # 安装依赖
-    mamba install pandas pyinstaller openpyxl -y
-    pip install windnd
-    pip install pyperclip
-    ```
-
-2.  **运行 GUI**:
-    ```bash
-    # 直接运行源码，无需安装包
-    python gui.py
-    ```
-
-3.  **构建 EXE**:
-    ```powershell
-    # Windows 下使用 PowerShell 脚本一键构建
-    ./build.ps1
-    ```
-    或者手动运行 PyInstaller:
-    ```bash
-    pyinstaller --noconfirm --onefile --windowed --name "ChatCellAnno" --hidden-import "pandas" --hidden-import "pyperclip" --hidden-import "windnd" "gui.py"
-    ```
+MIT License

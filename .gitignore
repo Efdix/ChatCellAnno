@@ -1,0 +1,22 @@
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 构建产物
+build/
+dist/
+*.spec
+
+# 环境/包管理
+.venv/
+venv/
+env/
+.env
+
+# 个人配置
+config.json
+
+# 编辑器
+.vscode/
+.idea/
