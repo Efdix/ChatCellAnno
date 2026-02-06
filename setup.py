@@ -9,6 +9,7 @@ setup(
     install_requires=[
         "pandas",
         "pyperclip",
+        "gseapy",
     ],
     python_requires=">=3.8",
 )

@@ -20,10 +20,12 @@ $IconPath = Join-Path $ScriptPath "app_icon.ico"
 pyinstaller --noconfirm --clean --onefile --windowed `
     --name "ChatCellAnno" `
     --icon "$IconPath" `
+    --add-data "database;database" `
     --hidden-import "PySide6.QtWebEngineWidgets" `
     --hidden-import "pandas" `
     --hidden-import "pyperclip" `
     --hidden-import "windnd" `
+    --hidden-import "gseapy" `
     "gui.py"
 
 Write-Host "Build Complete! Check the 'dist' folder." -ForegroundColor Green

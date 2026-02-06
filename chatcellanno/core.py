@@ -5,9 +5,16 @@
 它实现了 "Generate" (生成提示词) 和 "Parse" (解析 AI 回复) 这两个核心步骤。
 """
 
-from .extractor import extract_markers_from_file
+from .extractor import extract_markers_from_file, extract_markers_from_df
 from .prompt import generate_annotation_prompt
 from .parser import parse_llm_response, generate_annotation_code
+# Try importing enrichment module
+try:
+    from .enrichment import perform_enrichment
+    HAS_ENRICHMENT = True
+except ImportError:
+    HAS_ENRICHMENT = False
+
 import pandas as pd
 import os
 
@@ -20,21 +27,13 @@ def annotate_cell_types(
     top_n: int = 10,
     mode: str = "concise",
     source: str = "scanpy",
-    exclude_types: str = ""
+    exclude_types: str = "",
+    use_enrichment: bool = False,
+    enrichment_db: str = "GO_Biological_Process_2021",
+    enrichment_hints: dict = None
 ):
     """
     ChatCellAnno 标注工作流管理器。
-    
-    参数:
-        marker_file: 包含标记基因的 CSV/TSV 文件路径。
-        step: 当前步骤，'generate' (生成提示词) 或 'parse' (解析回复)。
-        response_text: AI 返回的文本内容 (仅用于 parse 步骤)。
-        species: 物种名称 (例如 Human, Mouse)，用于构建提示词。
-        tissue: 组织名称 (例如 PBMC, Lung)，用于构建提示词。
-        top_n: 每个聚类提取的标记基因数量。
-        mode: 提示词模式，'concise' (简洁) 或 'detailed' (详细)。
-        source: 数据来源，'scanpy' 或 'seurat'。
-        exclude_types: 需要排除的细胞类型（逗号分隔字符串）。
     """
     
     # 检查输入文件是否存在 (仅在 generate 阶段是必须的)
@@ -43,10 +42,38 @@ def annotate_cell_types(
 
     # 第一步：提取 Marker 并生成 Prompt (Extract Markers)
     if step == "generate":
-        # 从文件中提取 Marker 数据，返回字典格式 {cluster_key: "gene1, gene2..."}
-        markers = extract_markers_from_file(marker_file, top_n=top_n, source=source)
+        # 1. 提取用于 Prompt 的 Markers
+        markers_for_prompt = extract_markers_from_file(marker_file, top_n=top_n)
+        
+        full_enrichment_data = None
+        if use_enrichment and HAS_ENRICHMENT and not enrichment_hints:
+            try:
+                # 2. 提取用于 Enrich 的 Markers (top 100)
+                markers_for_enrich = extract_markers_from_file(marker_file, top_n=100)
+                
+                enrich_input = {k: v.split(", ") for k,v in markers_for_enrich.items()}
+                
+                full_enrichment_data = perform_enrichment(
+                    enrich_input, 
+                    species=species, 
+                    database_path=enrichment_db,
+                    top_term_n=3
+                )
+                
+                enrichment_hints = {k: v['hints'] for k, v in full_enrichment_data.items()}
+            except Exception as e:
+                print(f"Enrichment Analysis skipped due to error: {e}")
+        
         # 根据提取的数据生成给 LLM 的提示词
-        return generate_annotation_prompt(markers, species, tissue, mode=mode, exclude_types=exclude_types)
+        prompt = generate_annotation_prompt(
+            markers_for_prompt, 
+            species, 
+            tissue, 
+            mode=mode, 
+            exclude_types=exclude_types,
+            enrichment_hints=enrichment_hints
+        )
+        return prompt, full_enrichment_data
 
     # 第二步：解析 LLM 的回复 (Parse LLM Response)
     elif step == "parse":
@@ -56,7 +83,7 @@ def annotate_cell_types(
         # 尝试获取 cluster names (如果文件存在)
         cluster_names = None
         if marker_file and os.path.exists(marker_file):
-            markers = extract_markers_from_file(marker_file, top_n=top_n, source=source)
+            markers = extract_markers_from_file(marker_file, top_n=top_n)
             cluster_names = list(markers.keys())
 
         # 调用解析器处理 LLM 返回的文本

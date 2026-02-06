@@ -20,3 +20,10 @@ config.json
 # 编辑器
 .vscode/
 .idea/
+
+# 结果及运行数据
+results/
+chatcellanno_web_data/
+
+# 调试脚本 (不建议上传)
+debug_env.py

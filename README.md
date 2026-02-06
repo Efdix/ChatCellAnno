@@ -9,7 +9,8 @@ ChatCellAnno is a privacy-first, desktop application designed to bridge the gap 
 - **GUI Interface**: Modern, drag-and-drop interface powered by PySide6.
 - **Model Agnostic**: Compatible with any LLM (Copilot, DeepSeek, ChatGPT, Claude, etc.) via clipboard interaction.
 - **Privacy First**: No API keys required. No network requests are made by the application core.
-- **Intelligent Parsing**: Automatically detects Scanpy (`names`, `group`) and Seurat (`gene`, `cluster`) marker file formats.
+- **Intelligent Parsing**: Automatically detects Scanpy and Seurat marker file formats.
+- **Functional Enrichment**: Built-in ORA enrichment analysis (Online via Enrichr or Local via GMT files). Uses database evidence (GO, KEGG, CellMarker) to minimize AI hallucinations.
 - **Automated Code Generation**: Parses AI responses to generate executable Python (Scanpy) or R (Seurat) code for cell type annotation.
 
 ## Architecture
@@ -43,12 +44,11 @@ ChatCellAnno is a privacy-first, desktop application designed to bridge the gap 
    ```
 ## Workflow
 
-1. **Load Data**: Drag and drop your marker gene file (.csv, .tsv) into the application.
-2. **Configure**: Enter species, tissue type, and other parameters to refine the context.
-3. **Generate Prompt**: Click 'Generate & Copy Prompt'.
-4. **Interact with AI**: Paste the prompt into the built-in browser (or any external LLM interface).
-5. **Process Response**: Copy the AI's full response and paste it back into ChatCellAnno.
-6. **Get Code**: Click 'Process AI Output' to generate the annotation code.
+1. **Load Data**: Drag and drop your marker gene file (.csv, .tsv) into Step 1.
+2. **Enrichment (Optional)**: Select Online or Local enrichment in Step 2. You can drag a folder with database files into the app to load local libraries.
+3. **Configure & Generate**: Set species and analysis mode in Step 3. Click 'Generate & Copy Prompt'.
+4. **AI Browser**: Paste and send the prompt to an LLM using the integrated browser.
+5. **Parse & Export**: Copy the AI's markdown table response, paste it into Step 4, and click 'Process AI Output' to get the final R/Python code.
 
 ## License
 

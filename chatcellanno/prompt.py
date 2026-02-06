@@ -26,6 +26,7 @@ def generate_annotation_prompt(
     tissue: str = "PBMC",
     mode: str = "concise",
     exclude_types: str = "",
+    enrichment_hints: dict = None,
     auto_copy: bool = True
 ) -> str:
     """
@@ -39,13 +40,28 @@ def generate_annotation_prompt(
              - 'concise': 简洁模式，只输出细胞类型名称。
              - 'detailed': 详细模式，包含推荐 Marker 和功能解释。
         exclude_types: 需要排除的细胞类型（逗号分隔字符串）。
+        enrichment_hints: 字典 {cluster -> [hint1, hint2...]}，可选的富集分析结果。
         auto_copy: 是否自动复制到剪贴板。
     """
     
     # 构建 Marker 数据块
+    # 如果有 enrichment_hints，我们需要改变格式来包含这些信息
     marker_lines = []
+    
+    use_hints = enrichment_hints is not None and len(enrichment_hints) > 0
+
     for cluster, gene_str in markers.items():
-        marker_lines.append(f"{cluster}: {gene_str}")
+        if use_hints and str(cluster) in enrichment_hints:
+            hints = enrichment_hints[str(cluster)]
+            # 将提示信息拼接到同一行，或者作为子项
+            # 为了表格解析器方便，我们尽量保持行结构，建议将 Hints 放在方括号里
+            # 例如: Cluster0: Genes... [Hints: T cell activation(P=...), ...]
+            hints_str = "; ".join(hints)
+            line = f"{cluster}: Markers: {gene_str} | Functional Hints from Database: [{hints_str}]"
+            marker_lines.append(line)
+        else:
+            # 原有的格式
+            marker_lines.append(f"{cluster}: {gene_str}")
     
     marker_block = "\n".join(marker_lines)
     num_clusters = len(markers)
@@ -53,6 +69,9 @@ def generate_annotation_prompt(
     # 基础指令 (Base Instruction)
     base_instruction = f"Identify cell types of {species} {tissue} cells using the following markers separately for each row.\n" \
                        f"You MUST use standardized cell type names from the Cell Ontology (CL)."
+
+    if use_hints:
+        base_instruction += "\nUse the provided 'Functional Hints' (ORA Enrichment Results) as strong evidence to cross-validate gene markers."
 
     # 排除项指令 (Exclude Instruction)
     exclude_instruction = ""
