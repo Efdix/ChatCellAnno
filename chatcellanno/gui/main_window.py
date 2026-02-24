@@ -19,6 +19,7 @@ from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngin
 # So we go up to chatcellanno then down to config
 from ..config import ConfigManager
 from .workers import EnrichmentWorker
+from ..genome_utils import find_gene_sequences, format_mega_style
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -44,6 +45,7 @@ class MainWindow(QMainWindow):
                  base_dir = base_dir_pkg
 
         self.db_dir = os.path.join(base_dir, "database")
+        self.genome_dir = os.path.join(base_dir, "genome")
         self.db_path_map = {} 
 
         self.online_db_list = [
@@ -536,6 +538,31 @@ class MainWindow(QMainWindow):
         
         self.right_tabs.addTab(browser_container, self.config.T("tab_browser"))
 
+        # --- Tab 3: Genome Comparison ---
+        genome_container = QWidget()
+        genome_layout = QVBoxLayout(genome_container)
+        
+        # Search bar
+        genome_search_layout = QHBoxLayout()
+        self.genome_search_edit = QLineEdit()
+        self.genome_search_edit.setPlaceholderText(self.config.T("placeholder_gene"))
+        self.genome_search_edit.returnPressed.connect(self.search_genome)
+        genome_search_btn = QPushButton(self.config.T("search"))
+        genome_search_btn.clicked.connect(self.search_genome)
+        genome_search_layout.addWidget(self.genome_search_edit)
+        genome_search_layout.addWidget(genome_search_btn)
+        genome_layout.addLayout(genome_search_layout)
+        
+        # Results area
+        self.genome_results_scroll = QScrollArea()
+        self.genome_results_scroll.setWidgetResizable(True)
+        self.genome_results_content = QWidget()
+        self.genome_results_layout = QVBoxLayout(self.genome_results_content)
+        self.genome_results_scroll.setWidget(self.genome_results_content)
+        genome_layout.addWidget(self.genome_results_scroll)
+        
+        self.right_tabs.addTab(genome_container, self.config.T("tab_genome"))
+
         right_panel_layout.addWidget(self.right_tabs)
 
         self.splitter.addWidget(left_container)
@@ -949,6 +976,83 @@ class MainWindow(QMainWindow):
     def copy_code(self):
         pyperclip.copy(self.code_display.toPlainText())
         QMessageBox.information(self, "Copied", "Code copied to clipboard.")
+
+    def search_genome(self):
+        gene_name = self.genome_search_edit.text().strip()
+        if not gene_name:
+            return
+            
+        results = find_gene_sequences(gene_name, self.genome_dir)
+        
+        # Sort results: Human first as reference
+        def sort_key(r):
+            name_l = r['species'].lower()
+            if "human" in name_l: return (0, r['species'])
+            if "mouse" in name_l: return (1, r['species'])
+            return (2, r['species'])
+        results.sort(key=sort_key)
+        
+        # Clear previous results (including widgets AND spacers/stretches)
+        while self.genome_results_layout.count():
+            item = self.genome_results_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+                
+        if not results:
+            label = QLabel(self.config.T("no_results"))
+            label.setAlignment(Qt.AlignCenter)
+            self.genome_results_layout.addWidget(label)
+            return
+            
+        # 1. Blocked View (MEGA Style)
+        # 2. Advanced View (HTML/Color)
+        from chatcellanno.genome_utils import align_records, format_alignment_html, save_fasta_combined, get_fasta_string
+        
+        aligned_results = align_records(results)
+        
+        # Display logic
+        alignment_group = QGroupBox(f"Sequence Comparison for '{gene_name}'")
+        alignment_layout = QVBoxLayout()
+        
+        # Advanced HTML View
+        html_content = format_alignment_html(aligned_results)
+        view_advanced = QTextEdit()
+        view_advanced.setReadOnly(True)
+        view_advanced.setHtml(html_content)
+        view_advanced.setLineWrapMode(QTextEdit.NoWrap)
+        
+        # Check if muscle was used (heuristic: if muscle is available)
+        # Note: We just show the advanced view now as requested
+        alignment_layout.addWidget(view_advanced)
+        
+        # Buttons Row
+        btn_layout = QHBoxLayout()
+        
+        copy_all_btn = QPushButton("Copy Combined FASTA")
+        fasta_text = get_fasta_string(results)
+        copy_all_btn.clicked.connect(lambda: pyperclip.copy(fasta_text))
+        
+        download_btn = QPushButton("Export Combined FASTA")
+        def do_download():
+            save_path, _ = QFileDialog.getSaveFileName(self, "Export Combined FASTA", f"{gene_name}_homologs.fa", "FASTA Files (*.fa *.fasta)")
+            if save_path:
+                try:
+                    save_fasta_combined(results, save_path)
+                    QMessageBox.information(self, "Success", f"Saved to {save_path}")
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+        
+        download_btn.clicked.connect(do_download)
+        
+        btn_layout.addWidget(copy_all_btn)
+        btn_layout.addWidget(download_btn)
+        btn_layout.addStretch()
+        
+        alignment_layout.addLayout(btn_layout)
+        alignment_group.setLayout(alignment_layout)
+        self.genome_results_layout.addWidget(alignment_group)
+        
+        self.genome_results_layout.addStretch()
 
     def show_help(self):
         msg = """

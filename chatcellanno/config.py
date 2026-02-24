@@ -81,6 +81,10 @@ TRANSLATIONS = {
         "lang_en": "English",
         "tab_browser": "AI Browser",
         "tab_enrichment": "Enrichment Results",
+        "tab_genome": "Genome Comparison",
+        "search": "Search",
+        "placeholder_gene": "Enter gene name (e.g. Prrx1)",
+        "no_results": "No matching records found in genome folder.",
         "local_db_hint": "Please click the folder button to select database directory"
     },
     "zh": {
@@ -161,6 +165,10 @@ TRANSLATIONS = {
         "lang_en": "English",
         "tab_browser": "AI 浏览器",
         "tab_enrichment": "功能富集结果",
+        "tab_genome": "基因序列比对",
+        "search": "搜索",
+        "placeholder_gene": "输入基因名 (如 Prrx1)",
+        "no_results": "未在 genome 文件夹下找到匹配项。",
         "local_db_hint": "请点击右侧文件夹按钮选择本地数据库目录"
     }
 }
