@@ -11,21 +11,19 @@ $IconPath = Join-Path $ScriptPath "app_icon.ico"
 
 # Build command:
 # --clean: Clear cache
-# --onefile: Bundle into a single EXE
+# --onedir: Bundle into a directory (faster launch and build than --onefile)
 # --windowed: No console window when running
-# --name: Name of the output file
-# --icon: Path to icon file
-# --hidden-import: Ensure dynamic imports are found
 
-pyinstaller --noconfirm --clean --onefile --windowed `
+pyinstaller --noconfirm --clean --windowed `
     --name "ChatCellAnno" `
     --icon "$IconPath" `
     --add-data "database;database" `
     --hidden-import "PySide6.QtWebEngineWidgets" `
     --hidden-import "pandas" `
     --hidden-import "pyperclip" `
-    --hidden-import "windnd" `
     --hidden-import "gseapy" `
+    --exclude-module "PySide6.QtQml" `
+    --exclude-module "tkinter" `
     "gui.py"
 
 Write-Host "Build Complete! Check the 'dist' folder." -ForegroundColor Green

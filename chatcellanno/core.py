@@ -30,7 +30,9 @@ def annotate_cell_types(
     exclude_types: str = "",
     use_enrichment: bool = False,
     enrichment_db: str = "GO_Biological_Process_2021",
-    enrichment_hints: dict = None
+    enrichment_hints: dict = None,
+    visual_context: str = None,
+    check_expression_file: str = None
 ):
     """
     ChatCellAnno 标注工作流管理器。
@@ -44,6 +46,27 @@ def annotate_cell_types(
     if step == "generate":
         # 1. 提取用于 Prompt 的 Markers
         markers_for_prompt = extract_markers_from_file(marker_file, top_n=top_n)
+
+        # 1.1 Process Optional Expression Matrix
+        expression_matrix_text = None
+        if check_expression_file and os.path.exists(check_expression_file):
+            try:
+                # Read the CSV/TSV
+                if check_expression_file.endswith('.csv'):
+                    df_expr = pd.read_csv(check_expression_file, index_col=0)
+                else:
+                    df_expr = pd.read_table(check_expression_file, index_col=0)
+                
+                # Manual formatting to markdown if tabulate not installed
+                try:
+                    expression_matrix_text = df_expr.to_markdown()
+                except ImportError:
+                    # Simple TSV fallback for the LLM
+                    expression_matrix_text = "Cluster\t" + "\t".join(df_expr.columns) + "\n"
+                    for idx, row in df_expr.iterrows():
+                        expression_matrix_text += f"{idx}\t" + "\t".join([str(round(v, 4)) for v in row.values]) + "\n"
+            except Exception as e:
+                print(f"Error reading expression matrix: {e}")
         
         full_enrichment_data = None
         if use_enrichment and HAS_ENRICHMENT and not enrichment_hints:
@@ -71,7 +94,9 @@ def annotate_cell_types(
             tissue, 
             mode=mode, 
             exclude_types=exclude_types,
-            enrichment_hints=enrichment_hints
+            enrichment_hints=enrichment_hints,
+            visual_context=visual_context,
+            expression_matrix=expression_matrix_text
         )
         return prompt, full_enrichment_data
 

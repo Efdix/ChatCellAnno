@@ -7,10 +7,10 @@ from PySide6.QtWidgets import (
     QGroupBox, QTextEdit, QFileDialog, QMessageBox, QScrollArea,
     QSplitter, QComboBox, QDialog, QFormLayout, QToolButton,
     QListWidget, QListWidgetItem, QAbstractItemView, QMenu, QWidgetAction,
-    QTabWidget, QProgressBar
+    QTabWidget, QProgressBar, QApplication
 )
-from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QIcon, QPixmap, QImage, QImageReader
+from PySide6.QtCore import Qt, QUrl, QMimeData
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings
 
@@ -20,6 +20,27 @@ from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngin
 from ..config import ConfigManager
 from .workers import EnrichmentWorker
 from ..genome_utils import find_gene_sequences, format_mega_style
+
+class DragOutLabel(QLabel):
+    """A label that supports dragging files OUT of the application."""
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self.file_paths = []
+
+    def setFiles(self, paths):
+        self.file_paths = paths
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and self.file_paths:
+            from PySide6.QtGui import QDrag
+            from PySide6.QtCore import QMimeData, QUrl
+            drag = QDrag(self)
+            mime = QMimeData()
+            urls = [QUrl.fromLocalFile(p) for p in self.file_paths if os.path.exists(p)]
+            if urls:
+                mime.setUrls(urls)
+                drag.setMimeData(mime)
+                drag.exec_(Qt.CopyAction)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -169,19 +190,9 @@ class MainWindow(QMainWindow):
         control_layout = QVBoxLayout(control_widget)
         scroll.setWidget(control_widget)
 
-        # 1. Data Selection
-        data_group = QGroupBox(self.config.T("step1"))
-        data_layout = QVBoxLayout()
-        
-        file_path_layout = QHBoxLayout()
-        self.path_edit = QLineEdit()
-        self.path_edit.setPlaceholderText(self.config.T("placeholder_path"))
-        browse_btn = QPushButton(self.config.T("browse"))
-        browse_btn.clicked.connect(self.browse_file)
-        file_path_layout.addWidget(self.path_edit)
-        file_path_layout.addWidget(browse_btn)
-        data_layout.addLayout(file_path_layout)
-        data_group.setLayout(data_layout)
+        # 1. Data Selection (Refactored to ui_blocks)
+        from .ui_blocks import build_data_selection_ui
+        data_group = build_data_selection_ui(self)
         control_layout.addWidget(data_group)
 
         # 2. Enrichment Analysis
@@ -221,6 +232,10 @@ class MainWindow(QMainWindow):
         self.rb_local.toggled.connect(self.update_enrich_db_list)
         self.rb_online.toggled.connect(self.update_enrich_db_list)
         self.update_enrich_db_list()
+        
+        # Load last used database path if exists
+        if self.config.last_db_path:
+            self.load_databases_from_folder(self.config.last_db_path)
 
         self.run_enrich_btn = QPushButton(self.config.T("gen_btn_enrich"))
         self.run_enrich_btn.setStyleSheet("background-color: #673AB7; color: white; font-weight: bold; height: 35px;")
@@ -230,10 +245,11 @@ class MainWindow(QMainWindow):
         enrich_group.setLayout(enrich_layout)
         control_layout.addWidget(enrich_group)
 
-        # 3. Prompt Configuration
+        # 3. Prompt Configuration (Step 3)
         gen_group = QGroupBox(self.config.T("step3"))
         gen_layout = QVBoxLayout()
         
+        # 3.1 Basic Settings
         self.species_edit = QLineEdit(self.config.session_params.get("species", "Human"))
         self.tissue_edit = QLineEdit(self.config.session_params.get("tissue", "PBMC"))
         self.top_n_edit = QLineEdit(self.config.session_params.get("top_n", "10"))
@@ -249,6 +265,7 @@ class MainWindow(QMainWindow):
         gen_layout.addWidget(QLabel(self.config.T("top_n")))
         gen_layout.addWidget(self.top_n_edit)
         
+        # --- Query Mode Layout Setup ---
         self.exclude_edit = QLineEdit(self.config.session_params.get("exclude", ""))
         self.exclude_edit.setPlaceholderText("e.g. Neuron, Astrocyte")
         self.exclude_edit.textChanged.connect(self.save_config_state)
@@ -273,14 +290,72 @@ class MainWindow(QMainWindow):
         mode_layout.addWidget(self.rb_detailed)
         gen_layout.addLayout(mode_layout)
 
-        self.gen_btn = QPushButton(self.config.T("gen_btn"))
-        self.gen_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; height: 30px;")
+        # 3.2 Query Mode (Browser vs API)
+        gen_layout.addWidget(QLabel(self.config.T("query_mode")))
+        self.query_mode_group = QButtonGroup(self)
+        query_mode_layout = QHBoxLayout()
+        self.rb_query_browser = QRadioButton(self.config.T("browser_query"))
+        self.rb_query_api = QRadioButton(self.config.T("api_query"))
+        self.rb_query_browser.setChecked(True)
+        self.query_mode_group.addButton(self.rb_query_browser)
+        self.query_mode_group.addButton(self.rb_query_api)
+        query_mode_layout.addWidget(self.rb_query_browser)
+        query_mode_layout.addWidget(self.rb_query_api)
+        gen_layout.addLayout(query_mode_layout)
+
+        # 3.3 Dynamic Action Areas
+        self.browser_action_widget = QWidget()
+        browser_layout = QVBoxLayout(self.browser_action_widget)
+        browser_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.gen_btn = QPushButton(self.config.T("gen_prompt_file"))
+        self.gen_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; height: 35px;")
         self.gen_btn.clicked.connect(self.generate_prompt)
+        browser_layout.addWidget(self.gen_btn)
+        
+        self.drag_area_group = QGroupBox(self.config.T("drag_info"))
+        self.drag_area_layout = QVBoxLayout()
+        self.drag_area_info = DragOutLabel(self.config.T("drag_info"))
+        self.drag_area_info.setAlignment(Qt.AlignCenter)
+        self.drag_area_info.setStyleSheet("border: 2px dashed #4CAF50; border-radius: 5px; padding: 15px; background: #f0fff0; color: #2e7d32; font-weight: bold;")
+        self.drag_area_info.setMinimumHeight(100)
+        self.drag_area_layout.addWidget(self.drag_area_info)
+        self.drag_area_group.setLayout(self.drag_area_layout)
+        self.drag_area_group.hide() # Hidden initially
+        browser_layout.addWidget(self.drag_area_group)
+        
+        self.api_action_widget = QWidget()
+        api_layout = QHBoxLayout(self.api_action_widget)
+        api_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.btn_call_api = QPushButton("🚀 " + self.config.T("query_btn"))
+        self.btn_call_api.setStyleSheet("background-color: #673AB7; color: white; font-weight: bold; height: 35px;")
+        self.btn_call_api.clicked.connect(self.call_api_directly)
+        
+        self.btn_api_settings = QPushButton("⚙️")
+        self.btn_api_settings.clicked.connect(self.show_api_settings_dialog)
+        self.btn_api_settings.setFixedWidth(40)
+        self.btn_api_settings.setToolTip(self.config.T("api_settings"))
+        
+        api_layout.addWidget(self.btn_call_api)
+        api_layout.addWidget(self.btn_api_settings)
+        
+        gen_layout.addWidget(self.browser_action_widget)
+        gen_layout.addWidget(self.api_action_widget)
+
+        def on_query_mode_changed():
+            is_api = self.rb_query_api.isChecked()
+            self.api_action_widget.setVisible(is_api)
+            self.browser_action_widget.setVisible(not is_api)
+
+        self.rb_query_browser.toggled.connect(on_query_mode_changed)
+        self.rb_query_api.toggled.connect(on_query_mode_changed)
+        on_query_mode_changed()
+
         self.prompt_display = QTextEdit()
         self.prompt_display.setMaximumHeight(80)
         self.prompt_display.setFontFamily("Consolas")
         
-        gen_layout.addWidget(self.gen_btn)
         gen_layout.addWidget(self.prompt_display)
         gen_group.setLayout(gen_layout)
         control_layout.addWidget(gen_group)
@@ -418,6 +493,31 @@ class MainWindow(QMainWindow):
 
         guide_action = self.gear_menu.addAction(self.config.T("guide"))
         guide_action.triggered.connect(self.show_help)
+        
+        # --- Plugin System Injection ---
+        self.gear_menu.addSeparator()
+        
+        def show_plugin_manager():
+            from chatcellanno.plugins.manager_gui import PluginManagerDialog
+            dlg = PluginManagerDialog(self, hasattr(self, 'plugin_manager') and self.plugin_manager)
+            dlg.exec()
+            
+        try:
+            plugin_text = self.config.T("plugin_manager")
+        except:
+            plugin_text = "插件管理 (Plugins)"
+            
+        plugin_action = self.gear_menu.addAction("🧩 " + plugin_text)
+        plugin_action.triggered.connect(show_plugin_manager)
+        
+        try:
+            from chatcellanno.plugins import PluginManager
+            self.plugin_manager = PluginManager(self)
+            self.plugin_manager.load_plugins()
+            self.plugin_manager.init_plugins()
+        except Exception as e:
+            print(f"Failed to load plugins: {e}")
+        # -------------------------------
         
         self.gear_btn.setMenu(self.gear_menu)
         self.gear_btn.setPopupMode(QToolButton.InstantPopup)
@@ -651,17 +751,21 @@ class MainWindow(QMainWindow):
             self.load_databases_from_folder(folder)
 
     def load_databases_from_folder(self, folder):
+        if not os.path.exists(folder):
+            return
+            
         gmt_files = [f for f in os.listdir(folder) if f.endswith(('.gmt', '.txt'))]
         if not gmt_files:
-            QMessageBox.warning(self, "No Databases Found", "No .gmt or .txt files found in the selected folder.")
             return
             
         self.db_dir = folder
+        self.config.last_db_path = folder  # Record for next time
+        self.config.save_config()
+        
         self.db_path_map = {f: f for f in gmt_files}
         self.custom_db_label.setText(f"Folder: ...{folder[-30:]}")
         self.rb_local.setChecked(True)
         self.update_enrich_db_list()
-        QMessageBox.information(self, "Success", f"Loaded {len(gmt_files)} databases from folder.")
 
     def on_bookmarks_reordered(self, parent, start, end, destination, row):
         new_services = {}
@@ -874,6 +978,11 @@ class MainWindow(QMainWindow):
         if file_path:
             self.path_edit.setText(file_path)
 
+    def browse_matrix_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Expression Matrix File", "", "CSV/TSV Files (*.csv *.tsv *.txt)")
+        if file_path:
+            self.matrix_path_edit.setText(file_path)
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.accept()
@@ -889,13 +998,82 @@ class MainWindow(QMainWindow):
         if os.path.isdir(path):
             self.load_databases_from_folder(path)
         else:
-            self.path_edit.setText(path)
+            # Smart detection based on content
+            is_matrix = False
+            try:
+                # Read first few lines to check format
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    header = f.readline().lower()
+                    first_line = f.readline()
+                
+                # Logic: My generated matrix usually has 'Cluster_' in the first column
+                # or a large number of genes in the header without 'p_val', 'avg_log', etc.
+                if 'cluster_' in first_line.lower() or 'cluster_' in header:
+                    is_matrix = True
+                elif ',' in header and len(header.split(',')) > 15: # Many genes
+                    if not any(x in header for x in ['p_val', 'logfold', 'adj']):
+                        is_matrix = True
+            except:
+                pass
+
+            if is_matrix:
+                self.matrix_path_edit.setText(path)
+            else:
+                self.path_edit.setText(path)
 
     def navigate_to_url(self):
         url = self.url_bar.text()
         if not url.startswith("http"):
             url = "https://" + url
         self.browser.setUrl(QUrl(url))
+
+    def paste_image_from_clipboard(self):
+        clipboard = QApplication.clipboard() 
+        mime_data = clipboard.mimeData()
+        
+        pixmap = None
+        
+        try:
+            # Approach 1: Directly check if returning QImage works
+            if not clipboard.image().isNull():
+                pixmap = QPixmap.fromImage(clipboard.image())
+            # Approach 2: Try pixmap
+            elif not clipboard.pixmap().isNull():
+                pixmap = clipboard.pixmap()
+            # Approach 3: Check if there's a file URL in the clipboard
+            elif mime_data.hasUrls():
+                for url in mime_data.urls():
+                    if url.isLocalFile():
+                        local_file = url.toLocalFile()
+                        if local_file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.gif', '.webp')):
+                            pixmap = QPixmap(local_file)
+                            break
+        except Exception as e:
+            print(f"Clipboard image error: {e}")
+        
+        if pixmap and not pixmap.isNull():
+            self.img_data = pixmap
+            preview_h = self.img_preview.height() if self.img_preview.height() > 50 else 150
+            scaled_pixmap = self.img_data.scaledToHeight(preview_h, Qt.SmoothTransformation)
+            self.img_preview.setPixmap(scaled_pixmap)
+            self.img_preview.setText("") # Clear text
+            self.btn_copy_img_clip.setEnabled(True)
+        else:
+            formats = mime_data.formats() if mime_data else []
+            debug_info = f"\n\n[调试信息] 当前剪贴板格式: {', '.join(formats)}"
+            QMessageBox.warning(self, self.config.T("warning"), self.config.T("no_img_clipboard") + debug_info)
+
+    def copy_visual_image(self):
+        if self.img_data:
+            clipboard = QApplication.clipboard()
+            clipboard.setPixmap(self.img_data)
+            QMessageBox.information(self, self.config.T("success"), self.config.T("copy_img_success"))
+
+    def clear_image(self):
+        self.img_data = None
+        self.img_preview.clear()
+        self.img_preview.setText(self.config.T("no_img_loaded"))
+        self.btn_copy_img_clip.setEnabled(False)
 
     def generate_prompt(self):
         path = self.path_edit.text().strip()
@@ -910,6 +1088,10 @@ class MainWindow(QMainWindow):
             if self.enrichment_data:
                 enrichment_hints = {k: v['hints'] for k, v in self.enrichment_data.items()}
 
+            visual_context_str = None
+            if self.img_data:
+                visual_context_str = self.img_type_combo.currentText()
+                
             # Import core relative logic
             from chatcellanno.core import annotate_cell_types
             
@@ -922,17 +1104,158 @@ class MainWindow(QMainWindow):
                 mode=mode,
                 exclude_types=self.exclude_edit.text(),
                 use_enrichment=False, 
-                enrichment_hints=enrichment_hints
+                enrichment_hints=enrichment_hints,
+                visual_context=visual_context_str,
+                check_expression_file=self.matrix_path_edit.text().strip()
             )
             
             self.prompt_display.setText(prompt)
-            pyperclip.copy(prompt)
-
+            
+            # Switch to browser tab automatically
             self.right_tabs.setCurrentIndex(1)
-
-            QMessageBox.information(self, self.config.T("success"), self.config.T("prompt_copied"))
+            
+            # --- Export to File Strategy (Improved for Drag Out) ---
+            clipboard = QApplication.clipboard()
+            
+            # 建立软件执行目录下的 Temp_Prompts 文件夹
+            export_dir = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Temp_Prompts")
+            # 每次点击执行，清理一次旧文件防止混淆
+            if os.path.exists(export_dir):
+                import shutil
+                try: shutil.rmtree(export_dir) 
+                except: pass
+            os.makedirs(export_dir, exist_ok=True)
+            
+            file_paths = []
+            
+            # 保存文字文件
+            text_path = os.path.join(export_dir, "1_Annotation_Prompt.txt")
+            with open(text_path, 'w', encoding='utf-8') as f:
+                f.write(prompt)
+            file_paths.append(text_path)
+            
+            if self.img_data:
+                # 保存图片文件
+                img_path = os.path.join(export_dir, f"2_{self.img_type_combo.currentText().replace(' ', '_')}.png")
+                self.img_data.toImage().save(img_path, "PNG")
+                file_paths.append(img_path)
+            
+            # 配置拖拽组件
+            self.drag_area_info.setFiles(file_paths)
+            self.drag_area_info.setText(f"📁 已就绪 ({len(file_paths)}个文件)\n在此处按住鼠标左键\n并拖拽进浏览器对话框")
+            self.drag_area_group.show()
+            
+            msg = f"已生成拉拽文件！\n\n文件保存于: {export_dir}\n\n使用方式：按住下方绿色区域并拖动至AI聊天界面。"
+            
+            QMessageBox.information(self, self.config.T("success"), msg)
         except Exception as e:
             QMessageBox.critical(self, self.config.T("error"), f"Failed: {str(e)}")
+
+    def show_api_settings_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.config.T("api_settings"))
+        layout = QFormLayout(dialog)
+        
+        api_key_edit = QLineEdit(self.config.api_settings.get("api_key", ""))
+        api_key_edit.setEchoMode(QLineEdit.Password)
+        api_base_edit = QLineEdit(self.config.api_settings.get("api_base", "https://api.siliconflow.cn/v1"))
+        api_model_edit = QLineEdit(self.config.api_settings.get("api_model", "Qwen/Qwen2.5-72B-Instruct"))
+        api_model_edit.setToolTip("e.g. Qwen/Qwen2.5-72B-Instruct (Text) or Pro/Qwen/Qwen2-VL-72B-Instruct (Vision/Image)")
+        
+        layout.addRow(self.config.T("api_key"), api_key_edit)
+        layout.addRow(self.config.T("api_base"), api_base_edit)
+        layout.addRow(self.config.T("api_model"), api_model_edit)
+        
+        btn_box = QHBoxLayout()
+        save_btn = QPushButton(self.config.T("save"))
+        save_btn.clicked.connect(lambda: dialog.accept())
+        btn_box.addWidget(save_btn)
+        
+        layout.addRow(btn_box)
+        
+        if dialog.exec() == QDialog.Accepted:
+            self.config.api_settings["api_key"] = api_key_edit.text().strip()
+            self.config.api_settings["api_base"] = api_base_edit.text().strip()
+            self.config.api_settings["api_model"] = api_model_edit.text().strip()
+            self.config.save_config()
+
+    def call_api_directly(self):
+        if not self.config.api_settings.get("api_key"):
+            QMessageBox.warning(self, self.config.T("warning"), "Please set your API Key first.")
+            self.show_api_settings_dialog()
+            if not self.config.api_settings.get("api_key"):
+                return
+                
+        # First generate prompt silently
+        path = self.path_edit.text().strip()
+        if not os.path.exists(path):
+            QMessageBox.critical(self, self.config.T("error"), self.config.T("file_not_found"))
+            return
+            
+        try:
+            mode = "concise" if self.rb_concise.isChecked() else "detailed"
+            enrichment_hints = {k: v['hints'] for k, v in self.enrichment_data.items()} if self.enrichment_data else None
+            visual_context_str = self.img_type_combo.currentText() if self.img_data else None
+                
+            from chatcellanno.core import annotate_cell_types
+            prompt, _ = annotate_cell_types(
+                marker_file=path, step="generate", species=self.species_edit.text(),
+                tissue=self.tissue_edit.text(), top_n=int(self.top_n_edit.text()),
+                mode=mode, exclude_types=self.exclude_edit.text(), use_enrichment=False, 
+                enrichment_hints=enrichment_hints, visual_context=visual_context_str,
+                check_expression_file=self.matrix_path_edit.text().strip()
+            )
+            
+            # Prepare image base64 if needed
+            base64_img = None
+            if self.img_data:
+                from PySide6.QtCore import QByteArray, QBuffer, QIODevice
+                import base64
+                ba = QByteArray()
+                buffer = QBuffer(ba)
+                buffer.open(QIODevice.WriteOnly)
+                self.img_data.toImage().save(buffer, "PNG")
+                base64_img = base64.b64encode(ba.data()).decode('utf-8')
+            
+            # Call API via worker
+            from .workers import ApiWorker
+            self.api_worker = ApiWorker(
+                prompt=prompt,
+                api_key=self.config.api_settings["api_key"],
+                base_url=self.config.api_settings["api_base"],
+                model=self.config.api_settings["api_model"],
+                base64_image=base64_img
+            )
+            self.api_worker.finished.connect(self.on_api_success)
+            self.api_worker.error.connect(self.on_api_error)
+            
+            self.btn_call_api.setEnabled(False)
+            self.btn_call_api.setText("Loading...")
+            
+            self.statusBar().showMessage(self.config.T("api_calling"))
+            self.api_worker.start()
+            
+        except Exception as e:
+            QMessageBox.critical(self, self.config.T("error"), f"Failed: {str(e)}")
+            
+    def on_api_success(self, response_text):
+        self.btn_call_api.setEnabled(True)
+        self.btn_call_api.setText("🚀 " + self.config.T("use_api"))
+        self.statusBar().showMessage(self.config.T("api_success"), 5000)
+        
+        # Populate Response
+        self.response_input.setText(response_text)
+        
+        # Automatically select the right tab
+        self.right_tabs.setCurrentIndex(1)
+        
+        QMessageBox.information(self, self.config.T("success"), "API call successful! Now click 'Process AI Output'.")
+        
+    def on_api_error(self, error_msg):
+        self.btn_call_api.setEnabled(True)
+        self.btn_call_api.setText("🚀 " + self.config.T("use_api"))
+        self.statusBar().showMessage("API Error", 5000)
+        QMessageBox.critical(self, self.config.T("error"), error_msg)
 
     def process_response(self):
         path = self.path_edit.text().strip()

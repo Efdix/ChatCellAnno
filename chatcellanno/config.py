@@ -85,7 +85,30 @@ TRANSLATIONS = {
         "search": "Search",
         "placeholder_gene": "Enter gene name (e.g. Prrx1)",
         "no_results": "No matching records found in genome folder.",
-        "local_db_hint": "Please click the folder button to select database directory"
+        "local_db_hint": "Please click the folder button to select database directory",
+        "optional_matrix": "Key Genes Expression Matrix (Optional):",
+        "matrix_hint": "CSV with clusters as rows and genes as columns...",
+        "visual_context": "Visual Context (Optional)",
+        "paste_img": "Paste Image from Clipboard",
+        "clear_img": "Clear",
+        "img_type": "Image Type:",
+        "no_img_loaded": "No image loaded",
+        "copy_img_ai": "Copy Image to AI Chat",
+        "copy_img_success": "Image copied! Paste it into your AI Chat now.",
+        "no_img_clipboard": "No image data found in clipboard! Make sure you copied an actual image (not a file).",
+        "api_settings": "API Settings",
+        "use_api": "Auto-Call via API",
+        "api_key": "API Key:",
+        "api_base": "Base URL:",
+        "api_model": "Model Name:",
+        "api_calling": "Calling API, please wait...",
+        "api_success": "API response received successfully!",
+        "query_mode": "Query Mode:",
+        "browser_query": "Via Browser",
+        "api_query": "Via API",
+        "gen_prompt_file": "Generate Prompt File",
+        "drag_info": "Hold & Drag files to Browser Chat",
+        "query_btn": "Query"
     },
     "zh": {
         "title": "ChatCellAnno - 单细胞注释助手",
@@ -169,7 +192,30 @@ TRANSLATIONS = {
         "search": "搜索",
         "placeholder_gene": "输入基因名 (如 Prrx1)",
         "no_results": "未在 genome 文件夹下找到匹配项。",
-        "local_db_hint": "请点击右侧文件夹按钮选择本地数据库目录"
+        "local_db_hint": "请点击右侧文件夹按钮选择本地数据库目录",
+        "optional_matrix": "关键基因表达矩阵 (可选):",
+        "matrix_hint": "聚类为行，基因为列的 CSV 文件...",
+        "visual_context": "视觉上下文 (可选)",
+        "paste_img": "从剪贴板粘贴图像",
+        "clear_img": "清除",
+        "img_type": "图像类型 :",
+        "no_img_loaded": "未加载图像",
+        "copy_img_ai": "带图像复制",
+        "copy_img_success": "图像已复制！现在您可以将它粘贴到 AI 的对话框中了。",
+        "no_img_clipboard": "剪贴板中没有图像数据！\n如果是复制的图片文件而不是它里面的图像内容，请在画图、微信或系统自带图片查看器中打开后，按 Ctrl+C 复制。",
+        "api_settings": "API 设置",
+        "use_api": "直接通过 API 自动查询",
+        "api_key": "API 密钥 (Key):",
+        "api_base": "接口地址 (Base URL):",
+        "api_model": "模型名称 (Model):",
+        "api_calling": "正在调用 API, 请稍候...",
+        "api_success": "API 响应已成功接收！",
+        "query_mode": "查询模式:",
+        "browser_query": "通过浏览器查询",
+        "api_query": "通过 API 查询",
+        "gen_prompt_file": "生成提示词文件",
+        "drag_info": "在此处按住并拖拽到浏览器",
+        "query_btn": "查询"
     }
 }
 
@@ -206,6 +252,12 @@ class ConfigManager:
             "exclude": "",
             "prompt_mode": "concise"
         }
+        self.api_settings = {
+            "api_key": "",
+            "api_base": "https://api.siliconflow.cn/v1",
+            "api_model": "Qwen/Qwen2.5-72B-Instruct"
+        }
+        self.last_db_path = ""
         
         self.load_config()
 
@@ -217,6 +269,9 @@ class ConfigManager:
                     self.default_service = config.get("default_service", "DeepSeek")
                     loaded_params = config.get("session_params", {})
                     self.session_params.update(loaded_params)
+                    loaded_api = config.get("api_settings", {})
+                    self.api_settings.update(loaded_api)
+                    self.last_db_path = config.get("last_db_path", "")
                     custom_services = config.get("chat_services")
                     self.language = config.get("language", "en") 
                     if custom_services:
@@ -228,8 +283,10 @@ class ConfigManager:
         config = {
             "default_service": self.default_service,
             "session_params": self.session_params,
+            "api_settings": self.api_settings,
             "chat_services": self.chat_services,
-            "language": self.language
+            "language": self.language,
+            "last_db_path": self.last_db_path
         }
         try:
             with open(self.config_paths["config"], "w", encoding="utf-8") as f:

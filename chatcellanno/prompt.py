@@ -2,16 +2,56 @@
 提示词生成模块 (Prompt Engineering Module)
 
 负责构建高质量的 Prompt，指导 LLM 进行细胞注释。
-还包括了与系统剪贴板的交互功能，方便用户直接粘贴到 AI 对话框。
+包含 Role-Play、Few-Shot Learning 和 Chain-of-Thought (CoT) 等策略。
 """
 
 import pyperclip
 import platform
+from typing import Dict, List, Optional
 
-def copy_to_clipboard(text: str):
+class PromptBuilder:
+    """
+    用于构建复杂 LLM 提示词的建造者类。
+    支持链式调用，分模块组装 Prompt。
+    """
+    
+    def __init__(self):
+        self._parts = []
+    
+    def add_role(self, role_desc: str) -> 'PromptBuilder':
+        """添加角色设定"""
+        self._parts.append(f"## Role\n{role_desc}\n")
+        return self
+    
+    def add_task(self, task_desc: str) -> 'PromptBuilder':
+        """添加任务描述"""
+        self._parts.append(f"## Task\n{task_desc}\n")
+        return self
+    
+    def add_constraints(self, constraints: List[str]) -> 'PromptBuilder':
+        """添加约束条件"""
+        cons_str = "\n".join([f"- {c}" for c in constraints])
+        self._parts.append(f"## Constraints\n{cons_str}\n")
+        return self
+    
+    def add_data(self, data_title: str, content: str) -> 'PromptBuilder':
+        """添加核心数据"""
+        self._parts.append(f"## Data ({data_title})\n```text\n{content}\n```\n")
+        return self
+    
+    def add_output_format(self, format_desc: str) -> 'PromptBuilder':
+        """添加输出格式要求"""
+        self._parts.append(f"## Output Format\n{format_desc}\n")
+        return self
+        
+    def build(self) -> str:
+        """生成最终的提示词字符串"""
+        return "\n".join(self._parts)
+
+
+def copy_to_clipboard(text: str) -> bool:
     """
     尝试将文本复制到系统剪贴板。
-    使用 `pyperclip` 库，兼容 Windows, Mac, Linux。
     """
     try:
         pyperclip.copy(text)
@@ -21,107 +61,111 @@ def copy_to_clipboard(text: str):
         return False
 
 def generate_annotation_prompt(
-    markers: dict,
+    markers: Dict[str, str],
     species: str = "Human",
     tissue: str = "PBMC",
     mode: str = "concise",
     exclude_types: str = "",
-    enrichment_hints: dict = None,
+    enrichment_hints: Optional[Dict[str, List[str]]] = None,
+    visual_context: Optional[str] = None,
+    expression_matrix: Optional[str] = None,
     auto_copy: bool = True
 ) -> str:
     """
-    生成用于 LLM (Copilot, ChatGPT, DeepSeek 等) 的提示词。
+    构建专业的单细胞注释 Prompt。
     
     参数:
-        markers: 字典 {cluster -> markers_string}
-        species: 物种名称 (Human, Mouse...)
-        tissue: 组织名称 (PBMC, Liver...)
-        mode: 输出模式
-             - 'concise': 简洁模式，只输出细胞类型名称。
-             - 'detailed': 详细模式，包含推荐 Marker 和功能解释。
-        exclude_types: 需要排除的细胞类型（逗号分隔字符串）。
-        enrichment_hints: 字典 {cluster -> [hint1, hint2...]}，可选的富集分析结果。
-        auto_copy: 是否自动复制到剪贴板。
+        visual_context: 视觉上下文描述
+        expression_matrix: 含有某些关键基因在各个 cluster 中表达量的矩阵 (Markdown 格式)
     """
     
-    # 构建 Marker 数据块
-    # 如果有 enrichment_hints，我们需要改变格式来包含这些信息
-    marker_lines = []
+    # 1. 准备数据块
+    data_lines = []
     
-    use_hints = enrichment_hints is not None and len(enrichment_hints) > 0
+    # Check if enrichment_hints is actually a dict and has content
+    use_hints = isinstance(enrichment_hints, dict) and len(enrichment_hints) > 0
 
-    for cluster, gene_str in markers.items():
-        if use_hints and str(cluster) in enrichment_hints:
-            hints = enrichment_hints[str(cluster)]
-            # 将提示信息拼接到同一行，或者作为子项
-            # 为了表格解析器方便，我们尽量保持行结构，建议将 Hints 放在方括号里
-            # 例如: Cluster0: Genes... [Hints: T cell activation(P=...), ...]
-            hints_str = "; ".join(hints)
-            line = f"{cluster}: Markers: {gene_str} | Functional Hints from Database: [{hints_str}]"
-            marker_lines.append(line)
-        else:
-            # 原有的格式
-            marker_lines.append(f"{cluster}: {gene_str}")
+    for cluster_id, gene_list_str in markers.items():
+        base_line = f"Cluster {cluster_id}: {gene_list_str}"
+        
+        # 注入富集分析线索 (RAG - Retrieval Augmented Generation)
+        # Handle both string keys and int keys for cluster_id
+        c_key_str = str(cluster_id)
+        c_key_int = int(cluster_id) if str(cluster_id).isdigit() else cluster_id
+
+        hints = []
+        if use_hints:
+            if c_key_str in enrichment_hints:
+                hints = enrichment_hints[c_key_str]
+            elif c_key_int in enrichment_hints:
+                hints = enrichment_hints[c_key_int]
+        
+        if hints:
+            # Join hints, limit to top 5 to avoid token overflow
+            hints_text = "; ".join(hints[:5]) 
+            base_line += f"\n   [Reference Hints]: {hints_text}"
+            
+        data_lines.append(base_line)
     
-    marker_block = "\n".join(marker_lines)
-    num_clusters = len(markers)
+    data_content = "\n".join(data_lines)
     
-    # 基础指令 (Base Instruction)
-    base_instruction = f"Identify cell types of {species} {tissue} cells using the following markers separately for each row.\n" \
-                       f"You MUST use standardized cell type names from the Cell Ontology (CL)."
-
-    if use_hints:
-        base_instruction += "\nUse the provided 'Functional Hints' (ORA Enrichment Results) as strong evidence to cross-validate gene markers."
-
-    # 排除项指令 (Exclude Instruction)
-    exclude_instruction = ""
-    if exclude_types and exclude_types.strip():
-        exclude_instruction = f"IMPORTANT: The following cell types are known NOT to be present in this sample. Do NOT identify any cluster as: {exclude_types}."
-
-    mode_instruction = ""
-    example_block = ""
-
-    # 根据模式设置具体的格式指令
+    # 2. 构建 Prompt
+    builder = PromptBuilder()
+    
+    # Role
+    builder.add_role(
+        f"You are an expert Cell Biologist and Bioinformatician specializing in {species} {tissue} single-cell RNA-seq analysis."
+    )
+    
+    # Task
+    task_desc = f"Identify the cell types for the following clusters based on their top marker genes.\nThe tissue of origin is **{species} {tissue}**."
+    
+    if visual_context:
+        task_desc += f"\n\n**Visual Context Provided**: I have attached an image of the {visual_context} plot. Please examine the spatial relationships and clustering patterns in the image to cross-validate your annotations (e.g., adjacent clusters likely share lineage)."
+        
+    builder.add_task(task_desc)
+    
+    # Constraints
+    constraints = [
+        "Use standard, accepted cell ontology nomenclature.",
+        "Be specific (e.g., 'CD8+ T cell' instead of just 'T cell' if markers support it).",
+        "If markers are ambiguous or low quality, label as 'Unknown' or 'Low Quality'.",
+    ]
+    
+    if exclude_types:
+        constraints.append(f"Do NOT use these cell types: {exclude_types}.")
+        
     if mode == "concise":
-        mode_instruction = "For each cluster, provide the result in a Markdown Table format. The table must have columns: 'Cluster' and 'Cell Type'."
-        example_block = """Example Output:
-| Cluster | Cell Type |
-| :--- | :--- |
-| Cluster0 | CD4+ T Cell |
-| Cluster1 | B Cell |
-| Cluster2 | CD14+ Monocyte |"""
-    elif mode == "detailed":
-        mode_instruction = "For each cluster, provide the result in a Markdown Table format. The table must have columns: 'Cluster', 'Cell Type', 'Recommended Markers', and 'Reasoning/Functions'."
-        # 使用对应的 Example，确保 AI 输出表格
-        example_block = """Example Output:
-| Cluster | Cell Type | Recommended Markers | Reasoning/Functions |
-| :--- | :--- | :--- | :--- |
-| Cluster0 | CD4+ T Cell | CD3D, CD4 | CD3D is a T-cell receptor complex component... |
-| Cluster1 | B Cell | CD19, MS4A1 | CD19 is a classic B-cell marker... |"""
+        constraints.append("Keep the reasoning brief.")
     else:
-        raise ValueError("Invalid mode. Choose from 'concise', 'detailed'.")
+        constraints.append("Provide a short biological reasoning for each cell type based on the markers.")
 
-    # 组装最终 Prompt
-    # 强调返回行数必须与 Cluster 数量一致，这对于后续解析非常关键
-    prompt = f"""{base_instruction}
-
-{exclude_instruction}
-
-{mode_instruction}
-
-IMPORTANT: Return exactly {num_clusters} lines, one for each row. 
-Do not use Markdown header or code blocks. Just plain text lines.
-Do not add "Here is the list" or "Sure".
-
-{example_block}
-
----
-Task Data:
-{marker_block}
-"""
-
+    builder.add_constraints(constraints)
+    
+    # Output Format
+    # Explicitly asking for Markdown Table for parsing
+    format_desc = (
+        "Output ONLY a Markdown table with the following columns:\n"
+        "| Cluster | Cell Type | Reasoning |\n"
+        "Do not include any other text before or after the table."
+    )
+    builder.add_output_format(format_desc)
+    
+    # Data
+    builder.add_data("Top Marker Genes per Cluster", data_content)
+    
+    if expression_matrix:
+        matrix_description = (
+            "The following matrix shows the mean expression of specific genes of interest across each cluster. "
+            "Please use this expression data as additional evidence to refine your cell type identification. "
+            "Rows represent clusters and columns represent genes of interest."
+        )
+        builder.add_data("Gene Expression Matrix (Additional Evidence)", f"{matrix_description}\n\n{expression_matrix}")
+    
+    prompt = builder.build()
+    
     print("=" * 80)
-    print("🤖 ChatCellAnno: AI Prompt Generated")
+    print("🤖 ChatCellAnno: AI Prompt Generated via PromptBuilder")
     print("=" * 80)
     
     if auto_copy:

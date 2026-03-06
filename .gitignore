@@ -24,3 +24,17 @@ config.json
 # 结果及运行数据
 results/
 chatcellanno_web_data/
+Temp_Prompts/
+Exported_Prompts/
+
+# 生信数据库 (体积巨大且通常由用户自行下载，不建议上传)
+database/
+genome/
+
+# 插件系统产生的非核心代码
+chatcellanno/plugins/__pycache__/
+plugins/
+
+# OS 相关
+.DS_Store
+Thumbs.db
