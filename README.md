@@ -1,10 +1,10 @@
-# ChatCellAnno: AI-Powered Single-Cell Annotation Assistant 🧬🤖
+# ChatCellAnno: Multimodal AI-Powered Single-Cell Annotation Assistant 🧬🤖
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
-**ChatCellAnno** is a privacy-first, desktop application designed to bridge the gap between single-cell analysis data (Scanpy/Seurat) and Large Language Models (LLMs). Utilizing a **'Human-in-the-loop'** approach and a **'Zero-API'** design philosophy, it ensures your data remains local and secure while leveraging the power of modern AI.
+**ChatCellAnno** is a powerful **Multimodal & Hybrid-Interaction** desktop application designed to bridge the gap between complex single-cell omics data (Scanpy/Seurat) and frontier Large Language Models (LLMs). By integrating **Marker Genes**, **Expression Matrices**, and **Visual Context (UMAP/TSNE)**, it provides a high-fidelity grounding for AI-assisted cell type identification while maintaining a flexible "Human-in-the-loop" workflow.
 
 [中文文档 (Chinese Documentation)](SOFTWARE_DESCRIPTION_CN.md)
 
@@ -12,21 +12,23 @@
 
 ## ✨ Core Features
 
-- **🎨 Modern GUI**: Intuitive, drag-and-drop interface powered by PySide6.
-- **🧠 Model Agostic**: Compatible with **any** LLM (Copilot, DeepSeek, ChatGPT, Claude, etc.) via smart clipboard interaction.
-- **🔒 Privacy First**: No API keys required. No network requests are made by the application core.
-- **📊 Intelligent Parsing**: Automatically detects Scanpy (`.csv`) and Seurat (`.tsv`) marker file formats.
-- **🔬 Functional Enrichment**: Built-in ORA enrichment analysis (Online via Enrichr or Local via GMT files). Uses database evidence (GO, KEGG, CellMarker) to minimize AI hallucinations.
-- **🧬 Genome Analysis**: Visualize and export multi-species protein alignments with MEGA-style coloring.
-- **💻 Automated Code Generation**: Parses AI responses to generate executable Python (Scanpy) or R (Seurat) code for cell type annotation.
+- **🎨 Multimodal Grounding**: Go beyond simple gene lists. Feed your AI with **Visual Context (UMAP images)** and **Expression Matrices** to resolve ambiguous clusters.
+- **🔗 Hybrid Interaction Modes**: 
+  - **API Mode**: Directly connect to LLM providers (DeepSeek, OpenAI, SiliconFlow) for high-speed automated pipelines.
+  - **Browser Mode**: Use the integrated secure browser for a guided, manual-chat experience with privacy control.
+- **🔬 RAG-Enhanced Prompting**: Built-in **Functional Enrichment (GSEApy)** automatically injects biological pathway evidence (GO/KEGG) into prompts to minimize AI hallucinations.
+- **🧩 Hot-Swap Plugin System**: Extend the software's capabilities (e.g., Sequence Alignment, CellChat Integration) via a dynamic drag-and-drop plugin architecture.
+- **📄 One-Click Analysis Reports**: Automatically generate comprehensive Markdown reports summarizing annotations, enrichment results, and project metadata.
+- **💻 Automated Code Generation**: Seamlessly convert AI text responses into executable **Python (Scanpy)** or **R (Seurat)** code snippets.
+- **🔒 Flexible Data Persistence**: Portable configuration management designed to run from any folder, preserving your settings across updates.
 
 ---
 
 ## 🏗 Architecture
 
-- **Core Logic**: The `chatcellanno/` package handles data extraction, prompt engineering, and response parsing.
-- **GUI**: `gui.py` provides the user interface with an integrated QtWebEngine browser.
-- **Zero-API**: All data transfer between the app and the LLM is handled exclusively via the system clipboard.
+- **Core Logic**: The `chatcellanno/` package handles multi-source data extraction, expert-level prompt engineering, and structured response parsing.
+- **GUI Engine**: A highly modular PySide6 interface featuring a split-pane design for concurrent data inspection and AI interaction.
+- **Plugin Management**: Decoupled framework for runtime function injection without modifying the core codebase.
 
 ---
 
@@ -75,17 +77,29 @@ To distribute ChatCellAnno as a standalone `.exe` file on Windows:
 
 ---
 
-## 流程 Workflow
+## 🚀 Workflow
 
-1. **Step 1: Load Data**: Drag and drop your marker gene file (`.csv`, `.tsv`) into the drop zone.
-   - **(Optional)** Load a **Gene Expression Matrix** (Cluster-by-Gene mean expression) to provide focus on specific marker candidates.
-2. **Step 2: Enrichment (Optional)**: Select Online or Local enrichment to cross-validate cell identities.
-3. **Step 3: Configure & Generate**: 
-   - Set species and analysis mode. 
-   - **(New!) Visual Context**: Paste a screenshot of your UMAP/t-SNE plot to give the AI spatial context.
-   - Click **'Generate & Copy Prompt'**.
-4. **Step 4: AI Interaction**: Paste the prompt into your favorite LLM (e.g., DeepSeek, ChatGPT). If you added a UMAP image, click "Copy Image" and paste it into the chat too.
-5. **Step 5: Parse & Export**: Copy the AI's markdown table response, paste it back, and click **'Process AI Output'**.
+1. **Step 1: Data & Enrichment Loading**: 
+   - **Differential Gene List (Required)**: Drag and drop your marker gene files (`.csv`, `.tsv`) into the designated area.
+   - **(New!) Assisting AI with Enrichment (Optional)**: Check this option to perform local or online (Enrichr) enrichment. Bioinformatic evidence will be automatically written into the prompt to reduce hallucinations.
+   - **UMAP/t-SNE Screenshot (Optional)**: Paste a cluster visualization screenshot to provide crucial spatial context.
+
+2. **Step 2: Prompt Configuration**:
+   - Set the species, tissue, and output mode (Concise or Detailed).
+   - Click **'Generate & Copy Prompt'**. If a screenshot is added, you will be prompted to copy the image simultaneously.
+
+3. **Step 3: AI Interaction**:
+   - Paste the generated prompt and image into your favorite LLM (e.g., DeepSeek, ChatGPT, Claude).
+   - Use the **Built-in Browser** panel to handle conversations directly within the app.
+
+4. **Step 4: Parse & Export**:
+   - Copy the Markdown table response from the AI and paste it into the parsing area.
+   - Click **'Process AI Output'** to obtain executable **Python (Scanpy)** or **R (Seurat)** annotation scripts.
+
+## 🛠 Workspace Management
+
+- **Flexible Tabs**: All functional panels (Enrichment, Browser, Genome) on the right can be **closed** or **rearranged** via drag-and-drop.
+- **Restore Panels**: If a panel is accidentally closed, reopen it through the **'Show Panels'** menu under the top-right gear icon.
 
 ---
 

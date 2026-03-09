@@ -162,18 +162,22 @@ def generate_annotation_prompt(
         )
         builder.add_data("Gene Expression Matrix (Additional Evidence)", f"{matrix_description}\n\n{expression_matrix}")
     
+    # 3. 完成组装并处理输出 (Phase 3: Final execution & clipboard)
     prompt = builder.build()
     
+    # 打印一些状态信息到控制台 (Print status to console)
     print("=" * 80)
     print("🤖 ChatCellAnno: AI Prompt Generated via PromptBuilder")
     print("=" * 80)
     
+    # 如果开启自动复制，将结果存入系统剪贴板 (Auto-copy to system clipboard if enabled)
     if auto_copy:
         success = copy_to_clipboard(prompt)
         if success:
             print("✅ Prompt has been COPIED to your clipboard! (已复制到剪贴板)")
             print("👉 Go to your AI Chat (Copilot, DeepSeek, ChatGPT) and press Ctrl+V (Paste), then Enter.")
         else:
+            # 兼容模式：如果剪贴板调用失败，则在控制台打印全文 (Fallback: print full prompt)
             print("📋 Please copy the prompt below manually:")
             print(prompt)
     else:
