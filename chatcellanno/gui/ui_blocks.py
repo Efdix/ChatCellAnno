@@ -94,10 +94,17 @@ def build_data_selection_ui(main_window):
     visual_layout = QVBoxLayout()
     
     btn_img_layout = QHBoxLayout()
+    main_window.btn_browse_img = QPushButton("📁") # Add Browse Button
+    main_window.btn_browse_img.setFixedWidth(40)
+    main_window.btn_browse_img.setToolTip("Browse Local Image")
+    main_window.btn_browse_img.clicked.connect(main_window.browse_visual_image)
+    
     main_window.btn_paste_img = QPushButton(main_window.config.T("paste_img"))
     main_window.btn_paste_img.clicked.connect(main_window.paste_image_from_clipboard)
     main_window.btn_clear_img = QPushButton(main_window.config.T("clear_img"))
     main_window.btn_clear_img.clicked.connect(main_window.clear_image)
+    
+    btn_img_layout.addWidget(main_window.btn_browse_img) # Add to layout
     btn_img_layout.addWidget(main_window.btn_paste_img)
     btn_img_layout.addWidget(main_window.btn_clear_img)
     
@@ -107,6 +114,11 @@ def build_data_selection_ui(main_window):
     main_window.img_preview = QLabel(main_window.config.T("no_img_loaded"))
     main_window.img_preview.setAlignment(Qt.AlignCenter)
     main_window.img_preview.setStyleSheet("border: 1px dashed #aaa; padding: 10px; color: #888; background: #fdfdfd;")
+    main_window.img_preview.setAcceptDrops(True) # Enable drops
+    # Overwrite dragEnterEvent and dropEvent of the label
+    main_window.img_preview.dragEnterEvent = main_window.img_preview_drag_enter
+    main_window.img_preview.dropEvent = main_window.img_preview_drop
+    
     main_window.img_preview.setMinimumHeight(100)
     main_window.img_preview.setMaximumHeight(130)
     main_window.img_data = None

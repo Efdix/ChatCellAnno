@@ -5,7 +5,7 @@ import sys
 TRANSLATIONS = {
     "en": {
         "title": "ChatCellAnno",
-        "step1": "Step 1: Data Source & Enrichment",
+        "step1": "Step 1: Data Source",
         "placeholder_path": "Drag & drop file here or browse...",
         "browse": "Browse",
         "scanpy": "Scanpy (Python)",
@@ -118,7 +118,7 @@ TRANSLATIONS = {
     },
     "zh": {
         "title": "ChatCellAnno - 单细胞注释助手",
-        "step1": "步骤 1: 数据源与富集分析",
+        "step1": "步骤 1: 数据源",
         "placeholder_path": "拖放文件或点击浏览...",
         "browse": "浏览",
         "scanpy": "Scanpy (Python)",
@@ -214,9 +214,6 @@ TRANSLATIONS = {
         "marker_list_label": "差异基因列表 (必选):",
         "enrich_assist_label": "进行功能富集以辅助 AI 注释 (可选)",
         "panels_control": "显示面板 (Panels)",
-        "marker_list_label": "差异基因列表 (必选):",
-        "enrich_assist_label": "进行功能富集以辅助 AI 注释 (可选)",
-        "panels_control": "显示面板 (Panels)",
         "no_img_clipboard": "剪贴板中没有图像数据！\n如果是复制的图片文件而不是它里面的图像内容，请在画图、微信或系统自带图片查看器中打开后，按 Ctrl+C 复制。",
         "api_settings": "API 设置",
         "use_api": "直接通过 API 自动查询",
@@ -230,9 +227,7 @@ TRANSLATIONS = {
         "api_query": "通过 API 查询",
         "gen_prompt_file": "生成提示词文件",
         "drag_info": "在此处按住并拖拽到浏览器",
-        "query_btn": "查询",
-        "gen_report": "生成分析报告",
-        "report_template": "# ChatCellAnno 单细胞注释分析报告\n\n## 1. 项目基本信息\n- **日期**: {date}\n\n## 2. 细胞类型注释结果\n{results}\n\n## 3. 功能富集分析汇总\n{enrichment}\n\n---\n*本报告由 ChatCellAnno 自动化注释系统生成*"
+        "query_btn": "查询"
     }
 }
 

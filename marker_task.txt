@@ -1,3 +1,0 @@
-﻿marker_list_label
-enrich_assist_label
-panels_control

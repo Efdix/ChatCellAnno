@@ -1,0 +1,6 @@
+pandas
+pyperclip
+gseapy
+biopython
+PySide6
+PySide6-WebEngine

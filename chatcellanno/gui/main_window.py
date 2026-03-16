@@ -1226,19 +1226,49 @@ class MainWindow(QMainWindow):
             print(f"Clipboard image error: {e}")
         
         if pixmap and not pixmap.isNull():
-            # 成功捕获图像，渲染预览图 (Successfully captured, render preview)
-            self.img_data = pixmap
-            preview_h = self.img_preview.height() if self.img_preview.height() > 50 else 150
-            # 保持比例缩放 (Scale maintaining aspect ratio)
-            scaled_pixmap = self.img_data.scaledToHeight(preview_h, Qt.SmoothTransformation)
-            self.img_preview.setPixmap(scaled_pixmap)
-            self.img_preview.setText("") # 清除占位文字 (Clear placeholder text)
-            self.btn_copy_img_clip.setEnabled(True) # 激活复制按钮 (Enable copying)
+            self.set_preview_image(pixmap)
         else:
             # 失败提示：带上调试用的 Mime 格式列表 (Show debug mime formats on failure)
             formats = mime_data.formats() if mime_data else []
             debug_info = f"\n\n[调试信息] 当前剪贴板格式: {', '.join(formats)}"
             QMessageBox.warning(self, self.config.T("warning"), self.config.T("no_img_clipboard") + debug_info)
+
+    def browse_visual_image(self):
+        """从本地文件浏览器选择图片文件"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Image", "", "Images (*.png *.xpm *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)"
+        )
+        if file_path:
+            pixmap = QPixmap(file_path)
+            if not pixmap.isNull():
+                self.set_preview_image(pixmap)
+
+    def img_preview_drag_enter(self, event):
+        """处理图片预览框的拖入事件"""
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.gif', '.webp')):
+                    event.acceptProposedAction()
+                    return
+
+    def img_preview_drop(self, event):
+        """处理图片预览框的放下事件"""
+        for url in event.mimeData().urls():
+            file_path = url.toLocalFile()
+            pixmap = QPixmap(file_path)
+            if not pixmap.isNull():
+                self.set_preview_image(pixmap)
+                break
+
+    def set_preview_image(self, pixmap):
+        """统一设置预览图和状态"""
+        self.img_data = pixmap
+        # 使用固定的最大预览高度 130 确保比例协调
+        scaled_pixmap = self.img_data.scaledToHeight(130, Qt.SmoothTransformation)
+        self.img_preview.setPixmap(scaled_pixmap)
+        self.img_preview.setText("") # 清除占位文字
+        if hasattr(self, "btn_copy_img_clip"):
+            self.btn_copy_img_clip.setEnabled(True)
 
     def copy_visual_image(self):
         """
