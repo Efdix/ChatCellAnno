@@ -93,24 +93,17 @@ def build_data_selection_ui(main_window):
     main_window.visual_box = QGroupBox(main_window.config.T("visual_context"))
     visual_layout = QVBoxLayout()
     
-    btn_img_layout = QHBoxLayout()
-    main_window.btn_browse_img = QPushButton("📁") # Add Browse Button
-    main_window.btn_browse_img.setFixedWidth(40)
-    main_window.btn_browse_img.setToolTip("Browse Local Image")
+    # 统一路径输入风格 (Unified Path Style)
+    img_path_layout = QHBoxLayout()
+    main_window.img_path_edit = QLineEdit()
+    main_window.img_path_edit.setPlaceholderText("Paste image path or browse...")
+    main_window.img_path_edit.setReadOnly(True) # Just for display path
+    main_window.btn_browse_img = QPushButton(main_window.config.T("browse"))
     main_window.btn_browse_img.clicked.connect(main_window.browse_visual_image)
-    
-    main_window.btn_paste_img = QPushButton(main_window.config.T("paste_img"))
-    main_window.btn_paste_img.clicked.connect(main_window.paste_image_from_clipboard)
-    main_window.btn_clear_img = QPushButton(main_window.config.T("clear_img"))
-    main_window.btn_clear_img.clicked.connect(main_window.clear_image)
-    
-    btn_img_layout.addWidget(main_window.btn_browse_img) # Add to layout
-    btn_img_layout.addWidget(main_window.btn_paste_img)
-    btn_img_layout.addWidget(main_window.btn_clear_img)
-    
-    main_window.img_type_combo = QComboBox()
-    main_window.img_type_combo.addItems(["UMAP Plot", "t-SNE Plot", "Spatial Plot", "Heatmap"])
-    
+    img_path_layout.addWidget(main_window.img_path_edit)
+    img_path_layout.addWidget(main_window.btn_browse_img)
+    visual_layout.addLayout(img_path_layout)
+
     main_window.img_preview = QLabel(main_window.config.T("no_img_loaded"))
     main_window.img_preview.setAlignment(Qt.AlignCenter)
     main_window.img_preview.setStyleSheet("border: 1px dashed #aaa; padding: 10px; color: #888; background: #fdfdfd;")
@@ -123,8 +116,6 @@ def build_data_selection_ui(main_window):
     main_window.img_preview.setMaximumHeight(130)
     main_window.img_data = None
     
-    visual_layout.addLayout(btn_img_layout)
-    visual_layout.addWidget(main_window.img_type_combo)
     visual_layout.addWidget(main_window.img_preview)
 
     main_window.visual_box.setLayout(visual_layout)

@@ -54,8 +54,8 @@ The executable is generated under `dist/`.
 
 1. Load marker file (`.csv` or `.tsv`).
 2. Optionally add enrichment and image/matrix context.
-3. Generate prompt and query your target LLM.
-4. Paste response, parse output, and export Scanpy/Seurat code.
+3. Generate a prompt file in Step 2, then either drag it to the built-in browser chat (manual mode) or send it automatically with API mode.
+4. Parse the LLM response and export code/report in Step 4 (`Parsing & Report`).
 
 ## Development
 

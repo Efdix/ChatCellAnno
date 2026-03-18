@@ -69,7 +69,7 @@ def generate_annotation_prompt(
     enrichment_hints: Optional[Dict[str, List[str]]] = None,
     visual_context: Optional[str] = None,
     expression_matrix: Optional[str] = None,
-    auto_copy: bool = True
+    auto_copy: bool = False
 ) -> str:
     """
     构建专业的单细胞注释 Prompt。
@@ -143,12 +143,27 @@ def generate_annotation_prompt(
     builder.add_constraints(constraints)
     
     # Output Format
-    # Explicitly asking for Markdown Table for parsing
-    format_desc = (
-        "Output ONLY a Markdown table with the following columns:\n"
-        "| Cluster | Cell Type | Reasoning |\n"
-        "Do not include any other text before or after the table."
-    )
+    # 强制要求用户先输出摘要表格，再进行详细推理 (Enforce Summary Table followed by Detailed Analysis)
+    if mode == "detailed":
+        format_desc = (
+            "Please structure your response as follows:\n\n"
+            "### 1. Summary Table\n"
+            "Provide a Markdown table with columns: | Cluster | Cell Type | Reasoning Summary |\n\n"
+            "### 2. Comprehensive Analysis (per Cluster)\n"
+            "For EACH cluster, provide a detailed paragraph (4-6 sentences) explaining the inference. "
+            "Your explanation MUST collaboratively synthesize all available evidence:\n"
+            "- How the **Top Marker Genes** define the cell identity.\n"
+            "- How the **Reference Hints (Enrichment)** confirm the biological process.\n"
+            "- How the **Expression Matrix** (if provided) quantitatively supports the cluster's uniqueness.\n"
+            "- How the **Visual Patterns (UMAP/t-SNE)** (if provided) reflect the cluster's spatial or lineage relationships.\n"
+            "Finally, explain why this identification makes sense in the context of **{species} {tissue}**."
+        ).format(species=species, tissue=tissue)
+    else:
+        format_desc = (
+            "Output ONLY a Markdown table with the following columns:\n"
+            "| Cluster | Cell Type | Reasoning |\n"
+            "Do not include any other text before or after the table."
+        )
     builder.add_output_format(format_desc)
     
     # Data

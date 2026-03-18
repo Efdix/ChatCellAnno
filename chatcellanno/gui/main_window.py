@@ -1197,48 +1197,13 @@ class MainWindow(QMainWindow):
             url = "https://" + url
         self.browser.setUrl(QUrl(url))
 
-    def paste_image_from_clipboard(self):
-        """
-        从系统剪贴板抓取图像并更新到 UI 预览区 (Paste visual context from system clipboard).
-        支持多种图像流格式以及直接从文件浏览器复制图片的路径 (Multiple clipboard logic).
-        """
-        clipboard = QApplication.clipboard() 
-        mime_data = clipboard.mimeData()
-        
-        pixmap = None
-        
-        try:
-            # 策略 1：检查是否有原生位图流 (Check for raw pixel data)
-            if not clipboard.image().isNull():
-                pixmap = QPixmap.fromImage(clipboard.image())
-            # 策略 2：直接作为 Pixmap 提取 (Extract as Pixmap directly)
-            elif not clipboard.pixmap().isNull():
-                pixmap = clipboard.pixmap()
-            # 策略 3：检查是否是文件链接（例如在资源管理器中 Ctrl+C 了一个图片文件）
-            elif mime_data.hasUrls():
-                for url in mime_data.urls():
-                    if url.isLocalFile():
-                        local_file = url.toLocalFile()
-                        if local_file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.gif', '.webp')):
-                            pixmap = QPixmap(local_file)
-                            break
-        except Exception as e:
-            print(f"Clipboard image error: {e}")
-        
-        if pixmap and not pixmap.isNull():
-            self.set_preview_image(pixmap)
-        else:
-            # 失败提示：带上调试用的 Mime 格式列表 (Show debug mime formats on failure)
-            formats = mime_data.formats() if mime_data else []
-            debug_info = f"\n\n[调试信息] 当前剪贴板格式: {', '.join(formats)}"
-            QMessageBox.warning(self, self.config.T("warning"), self.config.T("no_img_clipboard") + debug_info)
-
     def browse_visual_image(self):
         """从本地文件浏览器选择图片文件"""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Image", "", "Images (*.png *.xpm *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)"
         )
         if file_path:
+            self.img_path_edit.setText(file_path)
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
                 self.set_preview_image(pixmap)
@@ -1255,6 +1220,7 @@ class MainWindow(QMainWindow):
         """处理图片预览框的放下事件"""
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
+            self.img_path_edit.setText(file_path)
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
                 self.set_preview_image(pixmap)
@@ -1267,27 +1233,6 @@ class MainWindow(QMainWindow):
         scaled_pixmap = self.img_data.scaledToHeight(130, Qt.SmoothTransformation)
         self.img_preview.setPixmap(scaled_pixmap)
         self.img_preview.setText("") # 清除占位文字
-        if hasattr(self, "btn_copy_img_clip"):
-            self.btn_copy_img_clip.setEnabled(True)
-
-    def copy_visual_image(self):
-        """
-        将预览区的视觉背景图像重新推送到剪贴板 (Push visual image back to clipboard).
-        主要是为了在生成提示词后再次确认图像已被选中，方便直接粘贴到网页 AI。
-        """
-        if self.img_data:
-            clipboard = QApplication.clipboard()
-            clipboard.setPixmap(self.img_data)
-            QMessageBox.information(self, self.config.T("success"), self.config.T("copy_img_success"))
-
-    def clear_image(self):
-        """
-        重置预览区并销毁内存中的图像数据 (Reset preview and purge memory image).
-        """
-        self.img_data = None
-        self.img_preview.clear()
-        self.img_preview.setText(self.config.T("no_img_loaded"))
-        self.btn_copy_img_clip.setEnabled(False)
 
     def generate_prompt(self):
         """
@@ -1310,7 +1255,9 @@ class MainWindow(QMainWindow):
             # 提取视觉背景类型（UMAP/TSNE 等）(Visual modality context)
             visual_context_str = None
             if self.img_data:
-                visual_context_str = self.img_type_combo.currentText()
+                visual_context_str = "UMAP/t-SNE Plot"
+                if hasattr(self, "img_path_edit") and self.img_path_edit.text():
+                    visual_context_str += f" ({os.path.basename(self.img_path_edit.text())})"
                 
             # 调用 backend core 逻辑生成多模态 Prompt (Call core logic for multimodal fusion)
             from chatcellanno.core import annotate_cell_types
@@ -1336,8 +1283,6 @@ class MainWindow(QMainWindow):
             self.show_panel_tab(self.tab_browser_widget, 'tab_browser')
             
             # --- 多模态导出策略：文件暂存与拖拽支持 (Export strategy with file temp storage) ---
-            clipboard = QApplication.clipboard()
-            
             # 建立软件执行目录下的 Temp_Prompts 文件夹，方便用户在浏览器中使用文件上传模式
             export_dir = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Temp_Prompts")
             # 每次生成前清理陈旧数据 (Clean old files before new export)
@@ -1357,7 +1302,7 @@ class MainWindow(QMainWindow):
             
             # 2. 如果存在视觉上下文，保存图片文件 (Save visual context image if existing)
             if self.img_data:
-                img_path = os.path.join(export_dir, f"2_{self.img_type_combo.currentText().replace(' ', '_')}.png")
+                img_path = os.path.join(export_dir, "2_Visual_Context.png")
                 self.img_data.toImage().save(img_path, "PNG")
                 file_paths.append(img_path)
             
@@ -1429,7 +1374,7 @@ class MainWindow(QMainWindow):
         try:
             mode = "concise" if self.rb_concise.isChecked() else "detailed"
             enrichment_hints = {k: v['hints'] for k, v in self.enrichment_data.items()} if self.enrichment_data else None
-            visual_context_str = self.img_type_combo.currentText() if self.img_data else None
+            visual_context_str = "UMAP/t-SNE Plot" if self.img_data else None
                 
             from chatcellanno.core import annotate_cell_types
             prompt, _ = annotate_cell_types(
@@ -1561,7 +1506,7 @@ class MainWindow(QMainWindow):
         """
         try:
             # 1. 采集关键指标数据 (Gather key data streams)
-            results_text = self.result_display.toPlainText().strip()
+            results_text = self.response_input.toPlainText().strip()
             if not results_text:
                 QMessageBox.warning(self, self.config.T("warning"), "No annotation results found. Please run Step 3/4 first.")
                 return
