@@ -97,7 +97,10 @@ def build_data_selection_ui(main_window):
     img_path_layout = QHBoxLayout()
     main_window.img_path_edit = QLineEdit()
     main_window.img_path_edit.setPlaceholderText("Paste image path or browse...")
-    main_window.img_path_edit.setReadOnly(True) # Just for display path
+    main_window.img_path_edit.setAcceptDrops(True)
+    # 允许将图片文件直接拖入路径框，行为与文件路径框一致
+    main_window.img_path_edit.dragEnterEvent = main_window.img_path_drag_enter
+    main_window.img_path_edit.dropEvent = main_window.img_path_drop
     main_window.btn_browse_img = QPushButton(main_window.config.T("browse"))
     main_window.btn_browse_img.clicked.connect(main_window.browse_visual_image)
     img_path_layout.addWidget(main_window.img_path_edit)

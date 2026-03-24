@@ -105,7 +105,8 @@ TRANSLATIONS = {
         "query_btn": "Query",
         "marker_list_label": "Differential Gene List (Required):",
         "enrich_assist_label": "Perform enrichment to assist AI annotation (Optional)",
-        "panels_control": "Show Panels"
+        "panels_control": "Show Panels",
+        "plugin_manager": "Plugin Manager"
     },
     "zh": {
         "title": "ChatCellAnno - 单细胞注释助手",
@@ -197,6 +198,7 @@ TRANSLATIONS = {
         "marker_list_label": "差异基因列表 (必选):",
         "enrich_assist_label": "进行功能富集以辅助 AI 注释 (可选)",
         "panels_control": "显示面板 (Panels)",
+        "plugin_manager": "插件管理",
         "api_settings": "API 设置",
         "use_api": "直接通过 API 自动查询",
         "api_key": "API 密钥 (Key):",
@@ -241,8 +243,7 @@ class ConfigManager:
         self.language = "en"
         self.chat_services = {
             "DeepSeek": "https://chat.deepseek.com",
-            "ChatGPT": "https://chatgpt.com", 
-            "Claude": "https://claude.ai",
+            "ChatGPT": "https://chatgpt.com",
         }
         self.default_service = "DeepSeek"
         self.session_params = {
@@ -275,7 +276,13 @@ class ConfigManager:
                     custom_services = config.get("chat_services")
                     self.language = config.get("language", "en") 
                     if custom_services:
+                        # 清理已移除的默认服务，避免旧配置残留影响 UI
+                        custom_services.pop("Claude", None)
                         self.chat_services = custom_services
+
+                    # 若默认主页指向被移除服务，回退到 DeepSeek
+                    if self.default_service == "Claude" or self.default_service not in self.chat_services:
+                        self.default_service = "DeepSeek"
             except:
                 pass
 
