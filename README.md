@@ -33,22 +33,40 @@ ChatCellAnno is a desktop application for single-cell annotation that combines m
 
 - Python 3.10+
 
-### Quick Start
+### Complete Environment Setup and Installation
+
+It is recommended to use `conda` to create an isolated environment to prevent conflicts with other python projects.
 
 ```bash
-conda create -n chatcellanno python=3.10
+# 1. Create and activate a conda virtual environment
+conda create -n chatcellanno python=3.10 -y
 conda activate chatcellanno
-pip install pandas pyperclip gseapy biopython PySide6 PySide6-WebEngine
+
+# 2. Install all required dependencies from requirements.txt
+pip install -r requirements.txt
+```
+
+If you don't have the source code cloned yet, you can also install the fundamental dependencies manually:
+```bash
+pip install pandas pyperclip gseapy biopython matplotlib PySide6 PyInstaller
+```
+
+### Direct Run
+
+Once the environment is properly configured, run the following command to launch the GUI:
+```bash
 python gui.py
 ```
 
-## Build (Windows)
+## Build Standalone Executable (Windows)
+
+To package the application into a single, standalone `.exe` file (allowing anyone to download and run it directly without installing a Python environment):
 
 ```powershell
 ./build.ps1
 ```
 
-The executable is generated under `dist/`.
+After the build is successfully completed, a single executable file `ChatCellAnno.exe` will be generated in the `dist/` folder. You can directly share this `.exe` file with other users.
 
 ## Typical Workflow
 

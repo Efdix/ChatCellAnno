@@ -2,5 +2,6 @@ pandas
 pyperclip
 gseapy
 biopython
+matplotlib
 PySide6
-PySide6-WebEngine
+Pyinstaller

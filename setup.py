@@ -17,9 +17,10 @@ setup(
         "pyperclip",
         "gseapy",
         "biopython",
+        "matplotlib",
     ],
     extras_require={
-        "gui": ["PySide6", "PySide6-WebEngine"],
+        "gui": ["PySide6", "Pyinstaller"],
         "dev": ["pytest", "pytest-mock"],
     },
     entry_points={

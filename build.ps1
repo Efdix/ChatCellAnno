@@ -11,10 +11,10 @@ $IconPath = Join-Path $ScriptPath "app_icon.ico"
 
 # Build command:
 # --clean: Clear cache
-# --onedir: Bundle into a directory (faster launch and build than --onefile)
+# --onefile: Bundle into a single executable file
 # --windowed: No console window when running
 
-pyinstaller --noconfirm --clean --windowed `
+pyinstaller --noconfirm --clean --windowed --onefile `
     --name "ChatCellAnno" `
     --icon "$IconPath" `
     --add-data "database;database" `
